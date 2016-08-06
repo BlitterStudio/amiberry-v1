@@ -1,5 +1,5 @@
 #!/bin/sh
-# Part of amigapi-setup https://github.com/midwan/amigapi-setup
+# Part of amigapi https://github.com/midwan/amigapi
 #
 # See LICENSE file for copyright and license details
 
@@ -131,7 +131,12 @@ do_expand_rootfs() {
     return 0
   fi
 
-apt-get -y install parted
+  PKG_OK=$(dpkg-query -W --showformat='${Status}\n' parted|grep "install ok installed")
+  echo Checking for parted: $PKG_OK
+  if [ "" == "$PKG_OK" ]; then
+    echo "Parted is not installed. Setting up parted..."
+    apt-get --force-yes --yes install parted
+  fi
 
   LAST_PART_NUM=$(parted /dev/mmcblk0 -ms unit s p | tail -n 1 | cut -f 1 -d:)
   if [ $LAST_PART_NUM -ne $PART_NUM ]; then
@@ -494,7 +499,7 @@ do_update() {
   apt-get -y update && apt-get -y upgrade &&
   printf "Sleeping 5 seconds before reloading amigapi-setup\n" &&
   sleep 5 &&
-  exec amigapi-setup
+  exec amigapi
 }
 
 do_audio() {
@@ -730,12 +735,14 @@ apt-get -y autoremove
 }
 
 do_wifi_setup() {
-# Install packages required for WiFi
-apt-get -y update && apt-get -y install firmware-brcm80211 wpasupplicant pi-bluetooth crda
-
-# Configure WiFi
-# TODO This needs to check if the wlan0 is already present first
-cat <<EOF >> /etc/network/interfaces
+  PKG_OK=$(dpkg-query -W --showformat='${Status}\n' wpasupplicant|grep "install ok installed")
+  echo Checking for wpasupplicant: $PKG_OK
+  if [ "" == "$PKG_OK" ]; then
+    echo "Required package wpasupplicant not found. Setting up wpasupplicant."
+    apt-get -y update && apt-get -y install wpasupplicant crda firmware-brcm80211 pi-bluetooth
+	# Configure WiFi
+    # TODO This needs to check if the wlan0 is already present first
+    cat <<EOF >> /etc/network/interfaces
 
 auto wlan0
 allow-hotplug wlan0
@@ -743,6 +750,8 @@ iface wlan0 inet dhcp
 wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf
 
 EOF
+
+  fi
 
   if [ "$INTERACTIVE" = True ]; then
     whiptail --msgbox "\
@@ -752,6 +761,7 @@ the WiFi interface will be activated. You can always re-run this tool
 to make changes to your WiFi configuration.\
 " 20 70 1
   fi
+  
   if [ "$INTERACTIVE" = True ]; then
     WLAN_SSID=$(whiptail --inputbox "Please enter the WiFi SSID" 20 60 3>&1 1>&2 2>&3)
 	WLAN_PASS=$(whiptail --inputbox "Please enter the WiFi Password" 20 60 3>&1 1>&2 2>&3)
@@ -760,6 +770,7 @@ to make changes to your WiFi configuration.\
 	WLAN_PASS=$2
     true
   fi
+  
   if [ $? -eq 0 ]; then
     whiptail --yesno "Save these settings? SSID: \"$WLAN_SSID\" Password: \"$WLAN_PASS\"" 20 60 1
     if [ $? -eq 0 ]; then # yes
@@ -775,7 +786,7 @@ to make changes to your WiFi configuration.\
 }
 
 if [ $(id -u) -ne 0 ]; then
-  printf "Script must be run as root. Try 'sudo amigapi-setup'\n"
+  printf "Script must be run as root. Try 'sudo sh ./amigapi'\n"
   exit 1
 fi
 
@@ -783,7 +794,13 @@ fi
 # Interactive use loop
 #
 if [ "$INTERACTIVE" = True ]; then
-  apt-get update && apt-get -y install whiptail
+  PKG_OK=$(dpkg-query -W --showformat='${Status}\n' whiptail|grep "install ok installed")
+  echo Checking for whiptail: $PKG_OK
+  if [ "" == "$PKG_OK" ]; then
+    echo "Package whiptail not installed. Setting up whiptail..."
+    apt-get update && apt-get -y install whiptail
+  fi
+  
   if ! mountpoint -q /boot; then
     whiptail --msgbox "The boot partition is not mounted - cannot configure. Note that amigapi-setup is intended for use on Minibian only and cannot be guaranteed to work on other operating systems." 20 60 1
     exit 1
@@ -799,7 +816,7 @@ if [ "$INTERACTIVE" = True ]; then
       "4 Setup WiFi" "Installs and enables WiFi, asking for your SSID and Password" \
       "5 Internationalisation Options" "Set up language and regional settings to match your location" \
       "9 Advanced Options" "Configure advanced settings" \
-      "0 About amigapi-setup" "Information about this configuration tool" \
+      "0 About AmigaPi" "Information about this configuration tool" \
       3>&1 1>&2 2>&3)
     RET=$?
     if [ $RET -eq 1 ]; then
@@ -807,9 +824,9 @@ if [ "$INTERACTIVE" = True ]; then
     elif [ $RET -eq 0 ]; then
       case "$FUN" in
         1\ *) do_expand_rootfs ;;
-	2\ *) do_update ;;
-	3\ *) do_amigapi_setup ;;
-	4\ *) do_wifi_setup ;;
+        2\ *) do_update ;;
+        3\ *) do_amigapi_setup ;;
+        4\ *) do_wifi_setup ;;
         5\ *) do_internationalisation_menu ;;
         9\ *) do_advanced_menu ;;
         0\ *) do_about ;;
