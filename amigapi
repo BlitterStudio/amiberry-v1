@@ -753,7 +753,6 @@ Description=UAE4Arm Amiga Emulator
 DefaultDependencies=no
 
 [Service]
-WorkingDirectory=/opt/uae4arm-rpi/
 ExecStart=/bin/bash -c "cd /opt/uae4arm-rpi/ && ./uae4arm-rpi2 -f conf/autostart.uae"
 
 [Install]
