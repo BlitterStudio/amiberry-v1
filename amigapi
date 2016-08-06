@@ -766,7 +766,7 @@ case \$1 in
     start)
 	echo "Starting uae4arm"
 	cd /opt/uae4arm-rpi
-	./uae4arm-rpi2 -f conf/autostart.uae
+	./uae4arm-rpi2 -f conf/autostart.uae &
 	;;
     stop)
 	echo "Stopping uae4arm"
