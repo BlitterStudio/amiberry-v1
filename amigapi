@@ -680,7 +680,20 @@ sed -e 's#^exit 0#/bin/dmesg -n 1\n\nexit 0#g' \
   -i /etc/rc.local
 
 # Optimize networking.service startup
-sed -i -e 's/auto/allow-hotplug/g' /etc/network/interfaces 
+sed -i -e 's/auto/allow-hotplug/g' /etc/network/interfaces
+
+# Set boot method to Console
+if [ $SYSTEMD -eq 1 ]; then
+  systemctl set-default multi-user.target
+  ln -fs /lib/systemd/system/getty@.service /etc/systemd/system/getty.target.wants/getty@tty1.service
+else
+  [ -e /etc/init.d/lightdm ] && update-rc.d lightdm disable 2
+  sed /etc/inittab -i -e "s/1:2345:respawn:\/bin\/login -f pi tty1 <\/dev\/tty1 >\/dev\/tty1 2>&1/1:2345:respawn:\/sbin\/getty --noclear 38400 tty1/"
+fi
+
+if [ -e /etc/init.d/00-splashscreen ]; then
+  update-rc.d 00-splashscreen disable
+fi 
  
 # Make mcedit the default editor
 update-alternatives --remove-all editor
