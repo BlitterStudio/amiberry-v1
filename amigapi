@@ -131,9 +131,9 @@ do_expand_rootfs() {
     return 0
   fi
 
-  PKG_OK=$(dpkg-query -W parted|grep "parted")
-  echo Checking for: $PKG_OK
-  if [ "" == "$PKG_OK" ]; then
+  echo Checking for parted:
+  if [ $(dpkg-query -W -f='${Status}\n' parted | grep -c "ok installed") -eq 0 ];
+  then
     echo "Parted is not installed. Setting up parted..."
     apt-get --force-yes --yes install parted
   fi
@@ -735,10 +735,10 @@ apt-get -y autoremove
 }
 
 do_wifi_setup() {
-  PKG_OK=$(dpkg-query -W wpasupplicant|grep "wpasupplicant")
-  echo Checking for: $PKG_OK
-  if [ "" == "$PKG_OK" ]; then
-    echo "Required package wpasupplicant not found. Setting up wpasupplicant."
+  echo Checking for wpasupplicant:
+  if [ $(dpkg-query -W -f='${Status}\n' wpasupplicant | grep -c "ok installed") -eq 0 ];
+  then
+    echo "Required package wpasupplicant not found. Setting up wpasupplicant..."
     apt-get -y update && apt-get -y install wpasupplicant crda firmware-brcm80211 pi-bluetooth
 	# Configure WiFi
     # TODO This needs to check if the wlan0 is already present first
@@ -755,9 +755,9 @@ EOF
 
   if [ "$INTERACTIVE" = True ]; then
     whiptail --msgbox "\
-Please note: You will be asked to enter your WiFi SSID and Password.
-All details will be saved in the wpa_supplicant.conf file, after which 
-the WiFi interface will be activated. You can always re-run this tool
+Please note: You will be asked to enter your WiFi SSID and Password. \
+All details will be saved in the wpa_supplicant.conf file, after which \
+the WiFi interface will be activated. You can always re-run this tool \
 to make changes to your WiFi configuration.\
 " 20 70 1
   fi
@@ -772,8 +772,12 @@ to make changes to your WiFi configuration.\
   fi
   
   if [ $? -eq 0 ]; then
-    whiptail --yesno "Save these settings? SSID: \"$WLAN_SSID\" Password: \"$WLAN_PASS\"" 20 60 1
-    if [ $? -eq 0 ]; then # yes
+    whiptail --yesno "Save these settings? 
+	
+	SSID: \"$WLAN_SSID\" 
+	Password: \"$WLAN_PASS\"" 20 60 1
+    
+	if [ $? -eq 0 ]; then # yes
       wpa_passphrase "$WLAN_SSID" "$WLAN_PASS" \
         >> /etc/wpa_supplicant/wpa_supplicant.conf
 	
@@ -785,6 +789,14 @@ to make changes to your WiFi configuration.\
   fi	
 }
 
+do_reboot() {
+  reboot now
+}
+
+do_shutdown() {
+  shutdown now
+}
+
 if [ $(id -u) -ne 0 ]; then
   printf "Script must be run as root. Try 'sudo sh ./amigapi'\n"
   exit 1
@@ -794,9 +806,9 @@ fi
 # Interactive use loop
 #
 if [ "$INTERACTIVE" = True ]; then
-  PKG_OK=$(dpkg-query -W whiptail|grep "whiptail")
-  echo Checking for: $PKG_OK
-  if [ "" == "$PKG_OK" ]; then
+  echo Checking for whiptail:
+  if [ $(dpkg-query -W -f='${Status}\n' whiptail | grep -c "ok installed") -eq 0 ];
+  then
     echo "Package whiptail not installed. Setting up whiptail..."
     apt-get update && apt-get -y install whiptail
   fi
@@ -815,8 +827,10 @@ if [ "$INTERACTIVE" = True ]; then
       "3 Setup AmigaPi (autostart)" "Installs and configures system to auto-boot in UAE" \
       "4 Setup WiFi" "Installs and enables WiFi, asking for your SSID and Password" \
       "5 Internationalisation Options" "Set up language and regional settings to match your location" \
-      "9 Advanced Options" "Configure advanced settings" \
-      "0 About AmigaPi" "Information about this configuration tool" \
+      "6 Advanced Options" "Configure advanced settings" \
+      "8 Reboot" "Reboot the system" \
+	  "9 Shutdown" "Shutdown the system" \
+	  "0 About AmigaPi" "Information about this configuration tool" \
       3>&1 1>&2 2>&3)
     RET=$?
     if [ $RET -eq 1 ]; then
@@ -828,7 +842,9 @@ if [ "$INTERACTIVE" = True ]; then
         3\ *) do_amigapi_setup ;;
         4\ *) do_wifi_setup ;;
         5\ *) do_internationalisation_menu ;;
-        9\ *) do_advanced_menu ;;
+        6\ *) do_advanced_menu ;;
+		8\ *) do_reboot ;;
+		9\ *) do_shutdown ;;
         0\ *) do_about ;;
         *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
       esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
