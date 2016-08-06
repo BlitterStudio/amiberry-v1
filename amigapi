@@ -679,13 +679,16 @@ apt-get -y update && apt-get -y install apt-utils apt-file \
 sed -e 's#^exit 0#/bin/dmesg -n 1\n\nexit 0#g' \
   -i /etc/rc.local
 
+# Optimize networking.service startup
+sed -i -e 's/auto/allow-hotplug/g' /etc/network/interfaces 
+ 
 # Make mcedit the default editor
 update-alternatives --remove-all editor
 update-alternatives --install \
   /usr/bin/editor editor /usr/bin/mcedit 10
 
 # Download emulator binary package
-wget http://blitterstudio.com/wp-content/uploads/2016/08/uae4arm-rpi.zip
+wget -q http://blitterstudio.com/wp-content/uploads/2016/08/uae4arm-rpi.zip -O ~/uae4arm-rpi.zip
 
 # Extract emulator package in /opt/
 unzip uae4arm-rpi.zip -d /opt/
@@ -707,7 +710,7 @@ cat <<EOF > /etc/init.d/uae4arm
 ### END INIT INFO
 
 # Carry out specific functions when asked by the system
-case "$1" in
+case \$1 in
     start)
 	echo "Starting uae4arm"
 	cd /opt/uae4arm-rpi
@@ -729,9 +732,18 @@ EOF
 chmod 755 /etc/init.d/uae4arm
 update-rc.d uae4arm defaults
 
+ASK_TO_REBOOT=1
+
 # Clean up
+rm uae4arm-rpi.zip
 apt-get clean
 apt-get -y autoremove
+
+whiptail --msgbox "\
+Done!
+Please reboot your system to start UAE.
+Remember that once you configure it, you can disable the GUI \
+on startup so that it boots directly into Workbench." 20 70 1
 }
 
 do_wifi_setup() {
@@ -744,7 +756,6 @@ do_wifi_setup() {
     # TODO This needs to check if the wlan0 is already present first
     cat <<EOF >> /etc/network/interfaces
 
-auto wlan0
 allow-hotplug wlan0
 iface wlan0 inet dhcp
 wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf
