@@ -10,7 +10,7 @@ Usage
 -----
 
 ~~~ bash
-wget --content-disposition https://git.io/v6Od9
+wget --content-disposition https://git.io/v6Oxc
 sh ./amigapi
 ~~~
 
