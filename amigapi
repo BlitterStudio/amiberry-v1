@@ -131,6 +131,8 @@ do_expand_rootfs() {
     return 0
   fi
 
+apt-get -y install parted
+
   LAST_PART_NUM=$(parted /dev/mmcblk0 -ms unit s p | tail -n 1 | cut -f 1 -d:)
   if [ $LAST_PART_NUM -ne $PART_NUM ]; then
     whiptail --msgbox "$ROOT_PART is not the last partition. Don't know how to expand" 20 60 2
@@ -647,7 +649,6 @@ do_advanced_menu() {
 }
 
 do_amigapi_setup() {
-
 # Tweak boot options in /boot/config.txt assign half the memory to the GPU
 cat <<EOF > $CONFIG
 gpu_mem_256=128
@@ -794,9 +795,9 @@ if [ "$INTERACTIVE" = True ]; then
     FUN=$(whiptail --title "AmigaPi Software Configuration Tool" --menu "Setup Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Finish --ok-button Select \
       "1 Expand Filesystem" "Ensures that all of the SD card storage is available to the OS" \
       "2 Upgrade System" "Upgrade all installed packages to the latest version" \
-	  "3 Setup AmigaPi (autostart)" "Installs and configures system to auto-boot in UAE" \
-	  "4 Setup WiFi" "Installs and enables WiFi, asking for your SSID and Password" \
-	  "5 Internationalisation Options" "Set up language and regional settings to match your location" \
+      "3 Setup AmigaPi (autostart)" "Installs and configures system to auto-boot in UAE" \
+      "4 Setup WiFi" "Installs and enables WiFi, asking for your SSID and Password" \
+      "5 Internationalisation Options" "Set up language and regional settings to match your location" \
       "9 Advanced Options" "Configure advanced settings" \
       "0 About amigapi-setup" "Information about this configuration tool" \
       3>&1 1>&2 2>&3)
@@ -806,9 +807,9 @@ if [ "$INTERACTIVE" = True ]; then
     elif [ $RET -eq 0 ]; then
       case "$FUN" in
         1\ *) do_expand_rootfs ;;
-		2\ *) do_update ;;
-		3\ *) do_amigapi_setup ;;
-		4\ *) do_wifi_setup ;;
+	2\ *) do_update ;;
+	3\ *) do_amigapi_setup ;;
+	4\ *) do_wifi_setup ;;
         5\ *) do_internationalisation_menu ;;
         9\ *) do_advanced_menu ;;
         0\ *) do_about ;;
