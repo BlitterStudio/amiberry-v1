@@ -747,42 +747,21 @@ unzip uae4arm-rpi.zip -d /opt/
 chmod -R a+rwx /opt/uae4arm-rpi
 
 # Autostart emulator
-cat <<EOF > /etc/init.d/uae4arm
-#!/bin/sh
-# /etc/init.d/uae4arm
+cat <<EOF > /etc/systemd/system/uae4arm.service
+[Unit]
+Description=UAE4Arm Amiga Emulator
+DefaultDependencies=no
 
-### BEGIN INIT INFO
-# Provides:		uae4arm
-# Required-Start:	\$$local_fs
-# Required-Stop:	\$$local_fs
-# Default-Start:	2 3 4 5
-# Default-Stop:		0 1 6
-# Short-Description: 	Start uae4arm-rpi2
-# Description:		Start uae4arm-rpi2
-### END INIT INFO
+[Service]
+WorkingDirectory=/opt/uae4arm-rpi/
+ExecStart=/bin/bash -c "cd /opt/uae4arm-rpi/ && ./uae4arm-rpi2 -f conf/autostart.uae &"
 
-# Carry out specific functions when asked by the system
-case \$1 in
-    start)
-	echo "Starting uae4arm"
-	cd /opt/uae4arm-rpi
-	./uae4arm-rpi2 -f conf/autostart.uae &
-	;;
-    stop)
-	echo "Stopping uae4arm"
-	killall uae4arm-rpi2
-	;;
-    *)
-	echo "Usage: /etc/init.d/uae4arm {start|stop}"
-	exit 1
-	;;
-esac
+[Install]
+WantedBy=local-fs.target
 
-exit 0
 EOF
 
-chmod 755 /etc/init.d/uae4arm
-update-rc.d uae4arm defaults
+systemctl enable uae4arm.service
 
 ASK_TO_REBOOT=1
 
