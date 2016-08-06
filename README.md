@@ -1,10 +1,10 @@
 # amigapi
-A script to configure a stock Minibian system as a dedicated Amiga emulation machine.
+A script to configure a stock [Minibian](https://minibianpi.wordpress.com/) system as a dedicated Amiga emulation machine.
 
 Requirements
 ------------
 A Raspberry Pi 3 (recommended) or 2.
-A stock Minibian installation.
+A stock [Minibian](https://minibianpi.wordpress.com/) installation.
 
 Usage
 -----
