@@ -1,0 +1,820 @@
+#!/bin/sh
+# Part of amigapi-setup https://github.com/midwan/amigapi-setup
+#
+# See LICENSE file for copyright and license details
+
+INTERACTIVE=True
+ASK_TO_REBOOT=0
+CONFIG=/boot/config.txt
+CMDLINE=/boot/cmdline.txt
+
+is_pione() {
+   if grep -q "^Revision\s*:\s*00[0-9a-fA-F][0-9a-fA-F]$" /proc/cpuinfo; then
+      return 0
+   elif  grep -q "^Revision\s*:\s*[ 123][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]0[0-36][0-9a-fA-F]$" /proc/cpuinfo ; then
+      return 0
+   else
+      return 1
+   fi
+}
+
+is_pitwo() {
+   grep -q "^Revision\s*:\s*[ 123][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]04[0-9a-fA-F]$" /proc/cpuinfo
+   return $?
+}
+
+is_pizero() {
+   grep -q "^Revision\s*:\s*[ 123][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]09[0-9a-fA-F]$" /proc/cpuinfo
+   return $?
+}
+
+get_pi_type() {
+   if is_pione; then
+      echo 1
+   elif is_pitwo; then
+      echo 2
+   else
+      echo 0
+   fi
+}
+
+get_init_sys() {
+  if command -v systemctl > /dev/null && systemctl | grep -q '\-\.mount'; then
+    SYSTEMD=1
+  elif [ -f /etc/init.d/cron ] && [ ! -h /etc/init.d/cron ]; then
+    SYSTEMD=0
+  else
+    echo "Unrecognised init system"
+    return 1
+  fi
+}
+
+calc_wt_size() {
+  # NOTE: it's tempting to redirect stderr to /dev/null, so supress error 
+  # output from tput. However in this case, tput detects neither stdout or 
+  # stderr is a tty and so only gives default 80, 24 values
+  WT_HEIGHT=17
+  WT_WIDTH=$(tput cols)
+
+  if [ -z "$WT_WIDTH" ] || [ "$WT_WIDTH" -lt 60 ]; then
+    WT_WIDTH=80
+  fi
+  if [ "$WT_WIDTH" -gt 178 ]; then
+    WT_WIDTH=120
+  fi
+  WT_MENU_HEIGHT=$(($WT_HEIGHT-7))
+}
+
+do_about() {
+    whiptail --msgbox "\
+This tool provides an easy way to automatically
+configure a stock Minibian installation as an
+Amiga emulator machine. The system will boot
+directly into UAE, but a few additional tools
+will also be installed.\
+" 20 70 1
+}
+
+get_can_expand() {
+  get_init_sys
+  if [ $SYSTEMD -eq 1 ]; then
+    ROOT_PART=$(mount | sed -n 's|^/dev/\(.*\) on / .*|\1|p')
+  else
+    if ! [ -h /dev/root ]; then
+      echo 1
+      exit
+    fi
+    ROOT_PART=$(readlink /dev/root)
+  fi
+
+  PART_NUM=${ROOT_PART#mmcblk0p}
+  if [ "$PART_NUM" = "$ROOT_PART" ]; then
+    echo 1
+    exit
+  fi
+
+  if [ "$PART_NUM" -ne 2 ]; then
+    echo 1
+    exit
+  fi
+
+  LAST_PART_NUM=$(parted /dev/mmcblk0 -ms unit s p | tail -n 1 | cut -f 1 -d:)
+  if [ $LAST_PART_NUM -ne $PART_NUM ]; then
+    echo 1
+    exit
+  fi
+  echo 0
+}
+
+do_expand_rootfs() {
+  get_init_sys
+  if [ $SYSTEMD -eq 1 ]; then
+    ROOT_PART=$(mount | sed -n 's|^/dev/\(.*\) on / .*|\1|p')
+  else
+    if ! [ -h /dev/root ]; then
+      whiptail --msgbox "/dev/root does not exist or is not a symlink. Don't know how to expand" 20 60 2
+      return 0
+    fi
+    ROOT_PART=$(readlink /dev/root)
+  fi
+
+  PART_NUM=${ROOT_PART#mmcblk0p}
+  if [ "$PART_NUM" = "$ROOT_PART" ]; then
+    whiptail --msgbox "$ROOT_PART is not an SD card. Don't know how to expand" 20 60 2
+    return 0
+  fi
+
+  # NOTE: the NOOBS partition layout confuses parted. For now, let's only 
+  # agree to work with a sufficiently simple partition layout
+  if [ "$PART_NUM" -ne 2 ]; then
+    whiptail --msgbox "Your partition layout is not currently supported by this tool. You are probably using NOOBS, in which case your root filesystem is already expanded anyway." 20 60 2
+    return 0
+  fi
+
+  LAST_PART_NUM=$(parted /dev/mmcblk0 -ms unit s p | tail -n 1 | cut -f 1 -d:)
+  if [ $LAST_PART_NUM -ne $PART_NUM ]; then
+    whiptail --msgbox "$ROOT_PART is not the last partition. Don't know how to expand" 20 60 2
+    return 0
+  fi
+
+  # Get the starting offset of the root partition
+  PART_START=$(parted /dev/mmcblk0 -ms unit s p | grep "^${PART_NUM}" | cut -f 2 -d: | sed 's/[^0-9]//g')
+  [ "$PART_START" ] || return 1
+  # Return value will likely be error for fdisk as it fails to reload the
+  # partition table because the root fs is mounted
+  fdisk /dev/mmcblk0 <<EOF
+p
+d
+$PART_NUM
+n
+p
+$PART_NUM
+$PART_START
+
+p
+w
+EOF
+  ASK_TO_REBOOT=1
+
+  # now set up an init.d script
+cat <<EOF > /etc/init.d/resize2fs_once &&
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          resize2fs_once
+# Required-Start:
+# Required-Stop:
+# Default-Start: 3
+# Default-Stop:
+# Short-Description: Resize the root filesystem to fill partition
+# Description:
+### END INIT INFO
+
+. /lib/lsb/init-functions
+
+case "\$1" in
+  start)
+    log_daemon_msg "Starting resize2fs_once" &&
+    resize2fs /dev/$ROOT_PART &&
+    update-rc.d resize2fs_once remove &&
+    rm /etc/init.d/resize2fs_once &&
+    log_end_msg \$?
+    ;;
+  *)
+    echo "Usage: \$0 start" >&2
+    exit 3
+    ;;
+esac
+EOF
+  chmod +x /etc/init.d/resize2fs_once &&
+  update-rc.d resize2fs_once defaults &&
+  if [ "$INTERACTIVE" = True ]; then
+    whiptail --msgbox "Root partition has been resized.\nThe filesystem will be enlarged upon the next reboot" 20 60 2
+  fi
+}
+
+
+set_config_var() {
+  lua - "$1" "$2" "$3" <<EOF > "$3.bak"
+local key=assert(arg[1])
+local value=assert(arg[2])
+local fn=assert(arg[3])
+local file=assert(io.open(fn))
+local made_change=false
+for line in file:lines() do
+  if line:match("^#?%s*"..key.."=.*$") then
+    line=key.."="..value
+    made_change=true
+  end
+  print(line)
+end
+
+if not made_change then
+  print(key.."="..value)
+end
+EOF
+mv "$3.bak" "$3"
+}
+
+clear_config_var() {
+  lua - "$1" "$2" <<EOF > "$2.bak"
+local key=assert(arg[1])
+local fn=assert(arg[2])
+local file=assert(io.open(fn))
+for line in file:lines() do
+  if line:match("^%s*"..key.."=.*$") then
+    line="#"..line
+  end
+  print(line)
+end
+EOF
+mv "$2.bak" "$2"
+}
+
+get_config_var() {
+  lua - "$1" "$2" <<EOF
+local key=assert(arg[1])
+local fn=assert(arg[2])
+local file=assert(io.open(fn))
+local found=false
+for line in file:lines() do
+  local val = line:match("^%s*"..key.."=(.*)$")
+  if (val ~= nil) then
+    print(val)
+    found=true
+    break
+  end
+end
+if not found then
+   print(0)
+end
+EOF
+}
+
+get_overscan() {
+  OVS=$(get_config_var disable_overscan $CONFIG)
+  if [ $OVS -eq 1 ]; then
+    echo 1
+  else
+    echo 0
+  fi
+}
+
+do_overscan() {
+  DEFAULT=--defaultno
+  CURRENT=0
+  if [ $(get_overscan) -eq 0 ]; then
+      DEFAULT=
+      CURRENT=1
+  fi
+  if [ "$INTERACTIVE" = True ]; then
+    whiptail --yesno "Would you like to enable compensation for displays with overscan?" $DEFAULT 20 60 2
+    RET=$?
+  else
+    RET=$1
+  fi
+  if [ $RET -eq $CURRENT ]; then
+    ASK_TO_REBOOT=1
+  fi
+  if [ $RET -eq 0 ] ; then
+    set_config_var disable_overscan 0 $CONFIG
+    STATUS=enabled
+  elif [ $RET -eq 1 ]; then
+    sed $CONFIG -i -e "s/^overscan_/#overscan_/"
+    set_config_var disable_overscan 1 $CONFIG
+    STATUS=disabled
+  else
+    return $RET
+  fi
+  if [ "$INTERACTIVE" = True ]; then
+    whiptail --msgbox "Display overscan compensation is $STATUS" 20 60 1
+  fi
+}
+
+do_configure_keyboard() {
+  dpkg-reconfigure keyboard-configuration &&
+  printf "Reloading keymap. This may take a short while\n" &&
+  invoke-rc.d keyboard-setup start || return $?
+  udevadm trigger --subsystem-match=input --action=change
+  return 0
+}
+
+do_change_locale() {
+  dpkg-reconfigure locales
+}
+
+do_change_timezone() {
+  dpkg-reconfigure tzdata
+}
+
+get_wifi_country() {
+   grep country= /etc/wpa_supplicant/wpa_supplicant.conf | cut -d "=" -f 2
+}
+
+do_wifi_country() {
+  oIFS="$IFS"
+  if [ "$INTERACTIVE" = True ]; then
+    IFS="/"
+    value=$(cat /usr/share/zoneinfo/iso3166.tab | tail -n +26 | tr '\t' '/' | tr '\n' '/')
+    COUNTRY=$(whiptail --menu "Select the country in which the Pi is to be used" 20 60 10 ${value} 3>&1 1>&2 2>&3)
+  else
+    COUNTRY=$1
+    true
+  fi
+  if [ $? -eq 0 ];then
+    if [ -e /etc/wpa_supplicant/wpa_supplicant.conf ]; then
+        if grep -q "^country=" /etc/wpa_supplicant/wpa_supplicant.conf ; then
+            sed -i "s/^country=.*/country=$COUNTRY/g" /etc/wpa_supplicant/wpa_supplicant.conf
+        else
+            sed -i "1i country=$COUNTRY" /etc/wpa_supplicant/wpa_supplicant.conf
+        fi
+    else
+        echo "country=$COUNTRY" > /etc/wpa_supplicant/wpa_supplicant.conf
+    fi
+    if [ "$INTERACTIVE" = True ]; then
+        whiptail --msgbox "Wi-fi country set to $COUNTRY" 20 60 1
+    fi
+    ASK_TO_REBOOT=1
+  fi
+  IFS=$oIFS
+}
+
+get_hostname() {
+    cat /etc/hostname | tr -d " \t\n\r"
+}
+
+do_hostname() {
+  if [ "$INTERACTIVE" = True ]; then
+    whiptail --msgbox "\
+Please note: RFCs mandate that a hostname's labels \
+may contain only the ASCII letters 'a' through 'z' (case-insensitive), 
+the digits '0' through '9', and the hyphen.
+Hostname labels cannot begin or end with a hyphen. 
+No other symbols, punctuation characters, or blank spaces are permitted.\
+" 20 70 1
+  fi
+  CURRENT_HOSTNAME=`cat /etc/hostname | tr -d " \t\n\r"`
+  if [ "$INTERACTIVE" = True ]; then
+    NEW_HOSTNAME=$(whiptail --inputbox "Please enter a hostname" 20 60 "$CURRENT_HOSTNAME" 3>&1 1>&2 2>&3)
+  else
+    NEW_HOSTNAME=$1
+    true
+  fi
+  if [ $? -eq 0 ]; then
+    echo $NEW_HOSTNAME > /etc/hostname
+    sed -i "s/127.0.1.1.*$CURRENT_HOSTNAME/127.0.1.1\t$NEW_HOSTNAME/g" /etc/hosts
+    ASK_TO_REBOOT=1
+  fi
+}
+
+do_overclock() {
+  if ! is_pione && ! is_pitwo; then
+    whiptail --msgbox "This Pi cannot be overclocked." 20 60 2
+    return 1
+  fi
+  if [ "$INTERACTIVE" = True ]; then
+    whiptail --msgbox "\
+Be aware that overclocking may reduce the lifetime of your
+Raspberry Pi. If overclocking at a certain level causes
+system instability, try a more modest overclock. Hold down
+shift during boot to temporarily disable overclock.
+See http://elinux.org/RPi_Overclocking for more information.\
+" 20 70 1
+   if is_pione; then
+    OVERCLOCK=$(whiptail --menu "Choose overclock preset" 20 60 10 \
+      "None" "700MHz ARM, 250MHz core, 400MHz SDRAM, 0 overvolt" \
+      "Modest" "800MHz ARM, 250MHz core, 400MHz SDRAM, 0 overvolt" \
+      "Medium" "900MHz ARM, 250MHz core, 450MHz SDRAM, 2 overvolt" \
+      "High" "950MHz ARM, 250MHz core, 450MHz SDRAM, 6 overvolt" \
+      "Turbo" "1000MHz ARM, 500MHz core, 600MHz SDRAM, 6 overvolt" \
+      3>&1 1>&2 2>&3)
+   elif is_pitwo; then
+    OVERCLOCK=$(whiptail --menu "Choose overclock preset" 20 60 10 \
+      "None" "900MHz ARM, 250MHz core, 450MHz SDRAM, 0 overvolt" \
+      "High" "1000MHz ARM, 500MHz core, 500MHz SDRAM, 2 overvolt" \
+      3>&1 1>&2 2>&3)
+   fi
+  else
+    OVERCLOCK=$1
+    true
+  fi
+  if [ $? -eq 0 ]; then
+    case "$OVERCLOCK" in
+      None)
+        clear_overclock
+        ;;
+      Modest)
+        set_overclock Modest 800 250 400 0
+        ;;
+      Medium)
+        set_overclock Medium 900 250 450 2
+        ;;
+      High)
+        if is_pione; then
+          set_overclock High 950 250 450 6
+        else
+          set_overclock High 1000 500 500 2
+        fi
+        ;;
+      Turbo)
+        set_overclock Turbo 1000 500 600 6
+        ;;
+      *)
+        whiptail --msgbox "Programmer error, unrecognised overclock preset" 20 60 2
+        return 1
+        ;;
+    esac
+    ASK_TO_REBOOT=1
+  fi
+}
+
+set_overclock() {
+  set_config_var arm_freq $2 $CONFIG &&
+  set_config_var core_freq $3 $CONFIG &&
+  set_config_var sdram_freq $4 $CONFIG &&
+  set_config_var over_voltage $5 $CONFIG &&
+  if [ "$INTERACTIVE" = True ]; then
+    whiptail --msgbox "Set overclock to preset '$1'" 20 60 2
+  fi
+}
+
+clear_overclock () {
+  clear_config_var arm_freq $CONFIG &&
+  clear_config_var core_freq $CONFIG &&
+  clear_config_var sdram_freq $CONFIG &&
+  clear_config_var over_voltage $CONFIG &&
+  if [ "$INTERACTIVE" = True ]; then
+    whiptail --msgbox "Set overclock to preset 'None'" 20 60 2
+  fi
+}
+
+get_ssh() {
+  if service ssh status | grep -q inactive; then
+    echo 1
+  else
+    echo 0
+  fi
+}
+
+do_ssh() {
+  if [ -e /var/log/regen_ssh_keys.log ] && ! grep -q "^finished" /var/log/regen_ssh_keys.log; then
+    whiptail --msgbox "Initial ssh key generation still running. Please wait and try again." 20 60 2
+    return 1
+  fi
+  DEFAULT=--defaultno
+  if [ $(get_ssh) -eq 0 ]; then
+    DEFAULT=
+  fi
+  if [ "$INTERACTIVE" = True ]; then
+    whiptail --yesno "Would you like the SSH server to be enabled?" $DEFAULT 20 60 2
+    RET=$?
+  else
+    RET=$1
+  fi
+  if [ $RET -eq 0 ]; then
+    update-rc.d ssh enable &&
+    invoke-rc.d ssh start &&
+    STATUS=enabled
+  elif [ $RET -eq 1 ]; then
+    update-rc.d ssh disable &&
+    invoke-rc.d ssh stop &&
+    STATUS=disabled
+  else
+    return $RET
+  fi
+  if [ "$INTERACTIVE" = True ]; then
+    whiptail --msgbox "The SSH server is $STATUS" 20 60 1
+  fi
+}
+
+do_update() {
+# TODO check for dist-upgrade
+# TODO check for uae4arm updates
+  apt-get -y update && apt-get -y upgrade &&
+  printf "Sleeping 5 seconds before reloading amigapi-setup\n" &&
+  sleep 5 &&
+  exec amigapi-setup
+}
+
+do_audio() {
+  AUDIO_OUT=$(whiptail --menu "Choose the audio output" 20 60 10 \
+    "0" "Auto" \
+    "1" "Force 3.5mm ('headphone') jack" \
+    "2" "Force HDMI" \
+    3>&1 1>&2 2>&3)
+  if [ $? -eq 0 ]; then
+    amixer cset numid=3 "$AUDIO_OUT"
+  fi
+}
+
+do_finish() {
+  if [ $ASK_TO_REBOOT -eq 1 ]; then
+    whiptail --yesno "Would you like to reboot now?" 20 60 2
+    if [ $? -eq 0 ]; then # yes
+      sync
+      reboot
+    fi
+  fi
+  exit 0
+}
+
+# $1 = filename, $2 = key name
+get_json_string_val() {
+  sed -n -e "s/^[[:space:]]*\"$2\"[[:space:]]*:[[:space:]]*\"\(.*\)\"[[:space:]]*,$/\1/p" $1
+}
+
+do_apply_os_config() {
+  [ -e /boot/os_config.json ] || return 0
+  NOOBSFLAVOUR=$(get_json_string_val /boot/os_config.json flavour)
+  NOOBSLANGUAGE=$(get_json_string_val /boot/os_config.json language)
+  NOOBSKEYBOARD=$(get_json_string_val /boot/os_config.json keyboard)
+
+  if [ -n "$NOOBSFLAVOUR" ]; then
+    printf "Setting flavour to %s based on os_config.json from NOOBS. May take a while\n" "$NOOBSFLAVOUR"
+
+    printf "Unrecognised flavour. Ignoring\n"
+  fi
+
+  # TODO: currently ignores en_gb settings as we assume we are running in a 
+  # first boot context, where UK English settings are default
+  case "$NOOBSLANGUAGE" in
+    "en")
+      if [ "$NOOBSKEYBOARD" = "gb" ]; then
+        DEBLANGUAGE="" # UK english is the default, so ignore
+      else
+        DEBLANGUAGE="en_US.UTF-8"
+      fi
+      ;;
+    "de")
+      DEBLANGUAGE="de_DE.UTF-8"
+      ;;
+    "fi")
+      DEBLANGUAGE="fi_FI.UTF-8"
+      ;;
+    "fr")
+      DEBLANGUAGE="fr_FR.UTF-8"
+      ;;
+    "hu")
+      DEBLANGUAGE="hu_HU.UTF-8"
+      ;;
+    "ja")
+      DEBLANGUAGE="ja_JP.UTF-8"
+      ;;
+    "nl")
+      DEBLANGUAGE="nl_NL.UTF-8"
+      ;;
+    "pt")
+      DEBLANGUAGE="pt_PT.UTF-8"
+      ;;
+    "ru")
+      DEBLANGUAGE="ru_RU.UTF-8"
+      ;;
+    "zh_CN")
+      DEBLANGUAGE="zh_CN.UTF-8"
+      ;;
+    *)
+      printf "Language '%s' not handled currently. Run sudo raspi-config to set up" "$NOOBSLANGUAGE"
+      ;;
+  esac
+
+  if [ -n "$DEBLANGUAGE" ]; then
+    printf "Setting language to %s based on os_config.json from NOOBS. May take a while\n" "$DEBLANGUAGE"
+    cat << EOF | debconf-set-selections
+locales   locales/locales_to_be_generated multiselect     $DEBLANGUAGE UTF-8
+EOF
+    rm /etc/locale.gen
+    dpkg-reconfigure -f noninteractive locales
+    update-locale LANG="$DEBLANGUAGE"
+    cat << EOF | debconf-set-selections
+locales   locales/default_environment_locale select       $DEBLANGUAGE
+EOF
+  fi
+
+  if [ -n "$NOOBSKEYBOARD" -a "$NOOBSKEYBOARD" != "gb" ]; then
+    printf "Setting keyboard layout to %s based on os_config.json from NOOBS. May take a while\n" "$NOOBSKEYBOARD"
+    sed -i /etc/default/keyboard -e "s/^XKBLAYOUT.*/XKBLAYOUT=\"$NOOBSKEYBOARD\"/"
+    dpkg-reconfigure -f noninteractive keyboard-configuration
+    invoke-rc.d keyboard-setup start
+  fi
+  return 0
+}
+
+nonint() {
+    $*
+}
+
+do_internationalisation_menu() {
+  FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool" --menu "Internationalisation Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
+    "I1 Change Locale" "Set up language and regional settings to match your location" \
+    "I2 Change Timezone" "Set up timezone to match your location" \
+    "I3 Change Keyboard Layout" "Set the keyboard layout to match your keyboard" \
+    "I4 Change Wi-fi Country" "Set the legal channels used in your country" \
+    3>&1 1>&2 2>&3)
+  RET=$?
+  if [ $RET -eq 1 ]; then
+    return 0
+  elif [ $RET -eq 0 ]; then
+    case "$FUN" in
+      I1\ *) do_change_locale ;;
+      I2\ *) do_change_timezone ;;
+      I3\ *) do_configure_keyboard ;;
+      I4\ *) do_wifi_country ;;
+      *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
+    esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
+  fi
+}
+
+do_advanced_menu() {
+  FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (raspi-config)" --menu "Advanced Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
+    "A1 Overscan" "You may need to configure overscan if black bars are present on display" \
+    "A2 Hostname" "Set the visible name for this Pi on a network" \
+    "A3 SSH" "Enable/Disable remote command line access to your Pi using SSH" \
+    "A4 Audio" "Force audio out through HDMI or 3.5mm jack" \
+    "A5 Overclock" "Configure overclocking for your Pi" \
+    3>&1 1>&2 2>&3)
+  RET=$?
+  if [ $RET -eq 1 ]; then
+    return 0
+  elif [ $RET -eq 0 ]; then
+    case "$FUN" in
+      A1\ *) do_overscan ;;
+      A2\ *) do_hostname ;;
+      A3\ *) do_ssh ;;
+      A4\ *) do_audio ;;
+      A5\ *) do_overclock ;;
+      *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
+    esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
+  fi
+}
+
+do_amigapi_setup() {
+
+# Tweak boot options in /boot/config.txt assign half the memory to the GPU
+cat <<EOF > $CONFIG
+gpu_mem_256=128
+gpu_mem_512=256
+gpu_mem_1024=512
+dtparam=audio=on
+EOF
+
+# Tweak boot options in /boot/cmdline.txt, hide boot messages except critical errors
+cat <<EOF > $CMDLINE
+dwc_otg.lpm_enable=0 console=ttyAMA0,115200 kgdboc=ttyAMA0,115200 console=tty3 root=/dev/mmcblk0p2 rootfstype=ext4 elevator=deadline fsck.repair=yes rootwait logo.nologo loglevel=3
+EOF
+
+# Install extra packages (uae dependencies and some useful tools)
+apt-get -y update && apt-get -y install apt-utils apt-file \
+  usbutils mc alsa-base alsa-oss joystick \
+  libsdl-image1.2 libsdl-ttf2.0-0 libsdl-gfx1.2-5 \
+  libguichan-0.8.1-1 libguichan-allegro-0.8.1-1 libguichan-sdl-0.8.1-1 libguichan-opengl-0.8.1-1 \
+  libjpgalleg4.4 libxml2 \
+  fuse ntfs-3g usbmount
+  
+# Disable debug messages on first console
+sed -e 's#^exit 0#/bin/dmesg -n 1\n\nexit 0#g' \
+  -i /etc/rc.local
+
+# Make mcedit the default editor
+update-alternatives --remove-all editor
+update-alternatives --install \
+  /usr/bin/editor editor /usr/bin/mcedit 10
+
+# Download emulator binary package
+wget http://blitterstudio.com/wp-content/uploads/2016/08/uae4arm-rpi.zip
+
+# Extract emulator package in /opt/
+unzip uae4arm-rpi.zip -d /opt/
+chmod -R a+rwx /opt/uae4arm-rpi
+
+# Autostart emulator
+cat <<EOF > /etc/init.d/uae4arm
+#!/bin/sh
+# /etc/init.d/uae4arm
+
+### BEGIN INIT INFO
+# Provides:		uae4arm
+# Required-Start:	$remote_fs $syslog
+# Required-Stop:	$remote_fs $syslog
+# Default-Start:	2 3 4 5
+# Default-Stop:		0 1 6
+# Short-Description: 	Start uae4arm-rpi2
+# Description:		Start uae4arm-rpi2
+### END INIT INFO
+
+# Carry out specific functions when asked by the system
+case "$1" in
+    start)
+	echo "Starting uae4arm"
+	cd /opt/uae4arm-rpi
+	./uae4arm-rpi2 -f conf/autostart.uae
+	;;
+    stop)
+	echo "Stopping uae4arm"
+	killall uae4arm-rpi2
+	;;
+    *)
+	echo "Usage: /etc/init.d/uae4arm {start|stop}"
+	exit 1
+	;;
+esac
+
+exit 0
+EOF
+
+chmod 755 /etc/init.d/uae4arm
+update-rc.d uae4arm defaults
+
+# Clean up
+apt-get clean
+apt-get -y autoremove
+}
+
+do_wifi_setup() {
+# Install packages required for WiFi
+apt-get -y update && apt-get -y install firmware-brcm80211 wpasupplicant pi-bluetooth crda
+
+# Configure WiFi
+# TODO This needs to check if the wlan0 is already present first
+cat <<EOF >> /etc/network/interfaces
+
+auto wlan0
+allow-hotplug wlan0
+iface wlan0 inet dhcp
+wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf
+
+EOF
+
+  if [ "$INTERACTIVE" = True ]; then
+    whiptail --msgbox "\
+Please note: You will be asked to enter your WiFi SSID and Password.
+All details will be saved in the wpa_supplicant.conf file, after which 
+the WiFi interface will be activated. You can always re-run this tool
+to make changes to your WiFi configuration.\
+" 20 70 1
+  fi
+  if [ "$INTERACTIVE" = True ]; then
+    WLAN_SSID=$(whiptail --inputbox "Please enter the WiFi SSID" 20 60 3>&1 1>&2 2>&3)
+	WLAN_PASS=$(whiptail --inputbox "Please enter the WiFi Password" 20 60 3>&1 1>&2 2>&3)
+  else
+    WLAN_SSID=$1
+	WLAN_PASS=$2
+    true
+  fi
+  if [ $? -eq 0 ]; then
+    whiptail --yesno "Save these settings? SSID: \"$WLAN_SSID\" Password: \"$WLAN_PASS\"" 20 60 1
+    if [ $? -eq 0 ]; then # yes
+      wpa_passphrase "$WLAN_SSID" "$WLAN_PASS" \
+        >> /etc/wpa_supplicant/wpa_supplicant.conf
+	
+	  whiptail --yesno "Enable WiFi now?" 20 60 1
+	  if [ $? -eq 0 ]; then # yes
+	    ifup wlan0
+	  fi
+    fi
+  fi	
+}
+
+if [ $(id -u) -ne 0 ]; then
+  printf "Script must be run as root. Try 'sudo amigapi-setup'\n"
+  exit 1
+fi
+
+#
+# Interactive use loop
+#
+if [ "$INTERACTIVE" = True ]; then
+  if ! mountpoint -q /boot; then
+    whiptail --msgbox "The boot partition is not mounted - cannot configure. Note that amigapi-setup is intended for use on Minibian only and cannot be guaranteed to work on other operating systems." 20 60 1
+    exit 1
+  fi
+  [ -e $CONFIG ] || touch $CONFIG
+  get_init_sys
+  calc_wt_size
+  while true; do
+    FUN=$(whiptail --title "AmigaPi Software Configuration Tool" --menu "Setup Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Finish --ok-button Select \
+      "1 Expand Filesystem" "Ensures that all of the SD card storage is available to the OS" \
+      "2 Upgrade System" "Upgrade all installed packages to the latest version" \
+	  "3 Setup AmigaPi (autostart)" "Installs and configures system to auto-boot in UAE" \
+	  "4 Setup WiFi" "Installs and enables WiFi, asking for your SSID and Password" \
+	  "5 Internationalisation Options" "Set up language and regional settings to match your location" \
+      "9 Advanced Options" "Configure advanced settings" \
+      "0 About amigapi-setup" "Information about this configuration tool" \
+      3>&1 1>&2 2>&3)
+    RET=$?
+    if [ $RET -eq 1 ]; then
+      do_finish
+    elif [ $RET -eq 0 ]; then
+      case "$FUN" in
+        1\ *) do_expand_rootfs ;;
+		2\ *) do_update ;;
+		3\ *) do_amigapi_setup ;;
+		4\ *) do_wifi_setup ;;
+        5\ *) do_internationalisation_menu ;;
+        9\ *) do_advanced_menu ;;
+        0\ *) do_about ;;
+        *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
+      esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
+    else
+      exit 1
+    fi
+  done
+fi
