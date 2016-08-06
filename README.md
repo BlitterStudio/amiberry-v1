@@ -1,5 +1,10 @@
 # amigapi
-A script to configure a stock [MINIBIAN] system as a dedicated Amiga emulation machine.
+A script to configure a stock Minibian system as a dedicated Amiga emulation machine.
+
+Requirements
+------------
+A Raspberry Pi 3 (recommended) or 2.
+A stock Minibian installation.
 
 Usage
 -----
@@ -47,6 +52,3 @@ apt-get -y install firmware-realtek
 
 
 Now unplug and reinsert the wireless adapter or reboot.
-
-
-[MINIBIAN]: https://minibianpi.wordpress.com/
