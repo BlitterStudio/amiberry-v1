@@ -131,8 +131,8 @@ do_expand_rootfs() {
     return 0
   fi
 
-  PKG_OK=$(dpkg-query -W --showformat='${Status}\n' parted|grep "install ok installed")
-  echo Checking for parted: $PKG_OK
+  PKG_OK=$(dpkg-query -W parted|grep "parted")
+  echo Checking for: $PKG_OK
   if [ "" == "$PKG_OK" ]; then
     echo "Parted is not installed. Setting up parted..."
     apt-get --force-yes --yes install parted
@@ -497,9 +497,9 @@ do_update() {
 # TODO check for dist-upgrade
 # TODO check for uae4arm updates
   apt-get -y update && apt-get -y upgrade &&
-  printf "Sleeping 5 seconds before reloading amigapi-setup\n" &&
+  printf "Sleeping 5 seconds before reloading AmigaPi\n" &&
   sleep 5 &&
-  exec amigapi
+  sh ./amigapi
 }
 
 do_audio() {
@@ -735,8 +735,8 @@ apt-get -y autoremove
 }
 
 do_wifi_setup() {
-  PKG_OK=$(dpkg-query -W --showformat='${Status}\n' wpasupplicant|grep "install ok installed")
-  echo Checking for wpasupplicant: $PKG_OK
+  PKG_OK=$(dpkg-query -W wpasupplicant|grep "wpasupplicant")
+  echo Checking for: $PKG_OK
   if [ "" == "$PKG_OK" ]; then
     echo "Required package wpasupplicant not found. Setting up wpasupplicant."
     apt-get -y update && apt-get -y install wpasupplicant crda firmware-brcm80211 pi-bluetooth
@@ -794,8 +794,8 @@ fi
 # Interactive use loop
 #
 if [ "$INTERACTIVE" = True ]; then
-  PKG_OK=$(dpkg-query -W --showformat='${Status}\n' whiptail|grep "install ok installed")
-  echo Checking for whiptail: $PKG_OK
+  PKG_OK=$(dpkg-query -W whiptail|grep "whiptail")
+  echo Checking for: $PKG_OK
   if [ "" == "$PKG_OK" ]; then
     echo "Package whiptail not installed. Setting up whiptail..."
     apt-get update && apt-get -y install whiptail
