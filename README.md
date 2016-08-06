@@ -3,8 +3,8 @@ A script to configure a stock [Minibian](https://minibianpi.wordpress.com/) syst
 
 Requirements
 ------------
-A Raspberry Pi 3 (recommended) or 2.
-A stock [Minibian](https://minibianpi.wordpress.com/) installation.
+- A Raspberry Pi 3 (recommended) or 2.
+- A stock [Minibian](https://minibianpi.wordpress.com/) installation.
 
 Usage
 -----
