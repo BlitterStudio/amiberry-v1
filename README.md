@@ -12,6 +12,7 @@ Usage
 ~~~ bash
 wget --content-disposition https://git.io/v6qwy
 sh ./amigapi
+~~~
 
 What next?
 ----------
