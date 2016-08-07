@@ -207,7 +207,6 @@ EOF
   fi
 }
 
-
 set_config_var() {
   lua - "$1" "$2" "$3" <<EOF > "$3.bak"
 local key=assert(arg[1])
@@ -265,6 +264,53 @@ end
 EOF
 }
 
+get_hdmi_safe() {
+ HDMISAFE=$(get_config_var hdmi_safe $CONFIG)
+ if [ $HDMISAFE -eq 1 ]; then
+   echo 1
+ else
+   echo 0
+ fi
+}
+
+do_hdmi_safe() {
+  DEFAULT=--defaultno
+  CURRENT=0
+  if [ $(get_hdmi_safe) -eq 0 ]; then
+    DEFAULT=
+	CURRENT=1
+  fi
+  if [ "$INTERACTIVE" = True ]; then
+    whiptail --yesno "Would you like to enable HDMI Safe mode?" $DEFAULT 20 60 2
+    RET=$?
+  else
+    RET=$1
+  fi
+  if [ $RET -eq $CURRENT ]; then
+    ASK_TO_REBOOT=1
+  fi
+  if [ $RET -eq 0 ]; then
+    set_config_var hdmi_safe 1 $CONFIG
+	STATUS=enabled
+  elif [ $RET -eq 1 ]; then
+    sed $CONFIG -i -e "s/^hdmi_safe/#hdmi_safe/"
+	set_config_var hdmi_safe 0 $CONFIG
+	STATUS=disabled
+  else
+    return $RET
+  fi
+  if [ "$INTERACTIVE" = True ]; then
+    whiptail --msgbox "HDMI Safe mode is $STATUS" 20 60 1
+  fi
+}
+
+get_hdmi_mode() {
+  whiptail --msgbox "Sorry, this feature is not implemented yet" 20 60 1 ;;
+}
+
+do_hdmi_mode() {
+  whiptail --msgbox "Sorry, this feature is not implemented yet" 20 60 1 ;;
+}
 get_overscan() {
   OVS=$(get_config_var disable_overscan $CONFIG)
   if [ $OVS -eq 1 ]; then
@@ -684,14 +730,6 @@ FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (AmigaPi)" --me
   fi
 }
 
-do_hdmi_safe() {
-  whiptail --msgbox "Sorry, this feature is not implemented yet" 20 60 1 ;;
-}
-
-do_hdmi_mode() {
-  whiptail --msgbox "Sorry, this feature is not implemented yet" 20 60 1 ;;
-}
-
 do_amigapi_setup() {
 # Tweak boot options in /boot/config.txt assign half the memory to the GPU
 cat <<EOF > $CONFIG
@@ -699,6 +737,7 @@ gpu_mem_256=128
 gpu_mem_512=256
 gpu_mem_1024=512
 dtparam=audio=on
+boot_delay=0
 EOF
 
 # Tweak boot options in /boot/cmdline.txt, hide boot messages except critical errors
