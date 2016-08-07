@@ -309,14 +309,17 @@ do_hdmi_safe() {
 
 get_hdmi_mode() {
   HDMI_GROUP=$(get_config_var hdmi_group $CONFIG)
-  HDMI_MODE=$(get_config_var hdmi_mode $CONFIG)
+  if [ $HDMI_GROUP -eq 0 ]; then
+    MODE="$(/opt/vc/bin/tvservice  -s)"
+  else
+    HDMI_MODE=$(get_config_var hdmi_mode $CONFIG)
+  fi
   echo $HDMI_GROUP
 }
 
 do_hdmi_mode() {
   if [ $(get_hdmi_mode) -eq 0 ]; then
     STATUS="Auto-detect from EDID"
-    MODE="Auto"
   elif [ $(get_hdmi_mode) -eq 1 ]; then
     STATUS="CEA (TV Standard)"
     case $HDMI_MODE in
@@ -474,8 +477,8 @@ do_hdmi_mode() {
     esac
   fi
   whiptail --msgbox "\
-  HDMI Group is currently set to $STATUS
-  Output format is set to $MODE \
+  HDMI Group is currently set to $STATUS.
+  Output format is set to $MODE. \
   " 20 60 1
 }
 
@@ -770,12 +773,17 @@ do_ssh() {
 }
 
 do_update() {
-# TODO check for dist-upgrade
-# TODO check for uae4arm updates
   apt-get -y update && apt-get -y upgrade &&
-  printf "Sleeping 5 seconds before reloading AmigaPi\n" &&
-  sleep 5 &&
+  do_selfupdate &&
   sh ./amigapi
+}
+
+do_selfupdatecheck() {
+  
+}
+
+do_selfupdate() {
+
 }
 
 do_audio() {
@@ -872,6 +880,23 @@ EOF
 
 nonint() {
     $*
+}
+
+do_installation_menu() {
+FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (AmigaPi)" --menu "Installation Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
+    "A1 Expand Filesystem" "Ensures that all of the SD card storage is available" \
+    "A2 Install AmigaPi" "Installs and configures system to auto-boot in UAE" \
+    3>&1 1>&2 2>&3)
+  RET=$?
+  if [ $RET -eq 1 ]; then
+    return 0
+  elif [ $RET -eq 0 ]; then
+    case "$FUN" in
+      A1\ *) do_expand_rootfs ;;
+      A2\ *) do_amigapi_setup ;;
+      *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
+    esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
+  fi
 }
 
 do_internationalisation_menu() {
@@ -1089,12 +1114,11 @@ if [ "$INTERACTIVE" = True ]; then
   calc_wt_size
   while true; do
     FUN=$(whiptail --title "AmigaPi Software Configuration Tool" --menu "Setup Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Finish --ok-button Select \
-      "1 Expand Filesystem" "Ensures that all of the SD card storage is available" \
-      "2 Upgrade System" "Upgrade all installed packages to the latest version" \
-      "3 Setup AmigaPi" "Installs and configures system to auto-boot in UAE" \
-      "4 Configure System" "Configure various system options" \
+      "1 Installation" "Installation options" \
+      "2 Upgrade" "Upgrade all installed packages to the latest version" \
+      "3 Configuration" "Configure various system options" \
+	  "4 Start Amiga Emulator" "Start the installed uae4arm" \
       "5 File Manager" "Open Midnight Commander to manage your files" \
-      "6 Start Amiga Emulator" "Start the installed uae4arm" \
       "8 Reboot" "Reboot the system" \
       "9 Shutdown" "Shutdown the system" \
       "0 About AmigaPi" "Information about this configuration tool" \
@@ -1104,12 +1128,11 @@ if [ "$INTERACTIVE" = True ]; then
       do_finish
     elif [ $RET -eq 0 ]; then
       case "$FUN" in
-        1\ *) do_expand_rootfs ;;
+        1\ *) do_installation_menu ;;
         2\ *) do_update ;;
-        3\ *) do_amigapi_setup ;;
-        4\ *) do_configure_menu ;;
-        5\ *) do_open_mc ;;
-        6\ *) do_run_uae ;;
+        3\ *) do_configure_menu ;;
+        4\ *) do_run_uae ;;
+		5\ *) do_open_mc ;;
         8\ *) do_reboot ;;
         9\ *) do_shutdown ;;
         0\ *) do_about ;;
