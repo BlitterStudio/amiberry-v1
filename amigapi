@@ -1173,7 +1173,7 @@ if [ "$INTERACTIVE" = True ]; then
     elif [ $RET -eq 0 ]; then
       case "$FUN" in
         1\ *) do_installation_menu ;;
-        2\ *) do_update ;;
+        2\ *) do_upgrade_menu ;;
         3\ *) do_configure_menu ;;
         4\ *) do_run_uae ;;
 		5\ *) do_open_mc ;;
