@@ -7,6 +7,8 @@ INTERACTIVE=True
 ASK_TO_REBOOT=0
 CONFIG=/boot/config.txt
 CMDLINE=/boot/cmdline.txt
+SELF=$(basename "$0")
+UPDATE_BASE=https://raw.githubusercontent.com/midwan/amigapi/master
 
 is_pione() {
    if grep -q "^Revision\s*:\s*00[0-9a-fA-F][0-9a-fA-F]$" /proc/cpuinfo; then
@@ -779,8 +781,6 @@ do_update() {
 }
 
 do_selfupdatecheck() {
-  SELF=$(basename "$0")
-  UPDATE_BASE=https://raw.githubusercontent.com/midwan/amigapi/master
   SUM_LATEST=$(curl $UPDATE_BASE/versions 2>&1 | grep $SELF | awk '{print $2}')
   SUM_SELF=$(cat "$0" | md5sum | awk '{print $1}')
   
@@ -799,7 +799,7 @@ do_selfupdate() {
   if ! hash curl 2>&-
   then
     whiptail --msgbox "Update checking requires curl. Check skipped." 20 60 1
-	return 1
+    return 1
   else
   SELFUPDATE=$(do_selfupdatecheck)
   if [ "$SELFUPDATE" -eq 0 ]
@@ -807,7 +807,41 @@ do_selfupdate() {
       whiptail --msgbox "You already have the latest version." 20 60 1
     elif [ "$SELFUPDATE" -eq 1 ]
     then
-      whiptail --msgbox "New version available!" 20 60 1
+      whiptail --yesno "A new version is available!
+Would you like to upgrade now?" 20 60 2
+    if [ $? -eq 0 ]; then # yes
+      _tempFileName="$0.tmp"
+      if ! wget --quiet --output-document="$_tempFileName" "$UPDATE_BASE/$SELF" ; then
+        whiptail --msgbox "Failed: Error while trying to wget new version!
+        File requested: $UPDATE_BASE/$SELF" 20 60 2
+        exit 1
+      fi
+      
+      # Copy over modes from old version
+      OCTAL_MODE=$(stat -c '%a' "$SELF")
+      if ! chmod $OCTAL_MODE "$_tempFileName" ; then
+        whiptail --msgbox "Failed: Error while trying to set mode on $_tempFileName." 20 60 2
+        exit 1
+      fi
+      
+      # Spawn update script
+     cat > updateScript.sh << EOF
+#!/bin/sh
+# Overwrite old file with new
+if mv "$_tempFileName" "$0" ; then
+  echo "Done."
+  echo "Update complete."
+  rm -- \$0
+  /bin/sh $0
+else
+  echo "Failed!"
+fi
+EOF
+  
+      echo -n "Inserting update process..."
+      exec /bin/sh updateScript.sh
+  
+    fi
     elif [ "$SELFUPDATE" -eq 2 ]
     then
       whiptail --msgbox "No update information is available for '$SELF'.
@@ -1102,7 +1136,7 @@ on startup so that it boots directly into Workbench." 20 70 1
 do_open_mc() {
   if [ $(dpkg-query -W -f='${Status}\n' mc | grep -c "ok installed") -eq 0 ];
   then
-    echo "Required package mc not found. Setting up mc..."
+    echo "Required package 'mc' not found. Installing mc..."
     apt-get -y update && apt-get -y install mc
   fi
 
@@ -1165,7 +1199,7 @@ if [ "$INTERACTIVE" = True ]; then
       "1 Installation" "Installation options" \
       "2 Upgrade" "Upgrade options" \
       "3 Configuration" "Configure various system options" \
-	  "4 Start Amiga Emulator" "Start the installed uae4arm" \
+      "4 Start Amiga Emulator" "Start the installed uae4arm" \
       "5 File Manager" "Open Midnight Commander to manage your files" \
       "8 Reboot" "Reboot the system" \
       "9 Shutdown" "Shutdown the system" \
@@ -1180,7 +1214,7 @@ if [ "$INTERACTIVE" = True ]; then
         2\ *) do_upgrade_menu ;;
         3\ *) do_configure_menu ;;
         4\ *) do_run_uae ;;
-		5\ *) do_open_mc ;;
+        5\ *) do_open_mc ;;
         8\ *) do_reboot ;;
         9\ *) do_shutdown ;;
         0\ *) do_about ;;
