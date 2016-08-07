@@ -305,11 +305,11 @@ do_hdmi_safe() {
 }
 
 get_hdmi_mode() {
-  whiptail --msgbox "Sorry, this feature is not implemented yet" 20 60 1 ;;
+  whiptail --msgbox "Sorry, this feature is not implemented yet" 20 60 1
 }
 
 do_hdmi_mode() {
-  whiptail --msgbox "Sorry, this feature is not implemented yet" 20 60 1 ;;
+  whiptail --msgbox "Sorry, this feature is not implemented yet" 20 60 1
 }
 get_overscan() {
   OVS=$(get_config_var disable_overscan $CONFIG)
