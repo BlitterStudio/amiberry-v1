@@ -782,13 +782,12 @@ do_selfupdatecheck() {
   SELF=$(basename "$0")
   UPDATE_BASE=https://raw.githubusercontent.com/midwan/amigapi/master
   SUM_LATEST=$(curl $UPDATE_BASE/versions 2>&1 | grep $SELF | awk '{print $2}')
-  SUM_SELF=$(tail --lines=+2 "$0" | md5sum | awk '{print $1}')
+  SUM_SELF=$(cat "$0" | md5sum | awk '{print $1}')
   
-  if [[ "" == $SUM_LATEST ]]; then
+  if [ -z "$SUM_LATEST" ]; then
   #No update information is available
-    echo 2
-    
-  elif [[ "$SUM_LATEST" != "$SUM_SELF" ]]; then
+    echo 2  
+  elif [ "$SUM_LATEST" != "$SUM_SELF" ]; then
   #New version available!
     echo 1
   else
@@ -797,18 +796,23 @@ do_selfupdatecheck() {
 }
 
 do_selfupdate() {
-  if ! hash curl 2>&-; then
+  if ! hash curl 2>&-
+  then
     whiptail --msgbox "Update checking requires curl. Check skipped." 20 60 1
 	return 1
-  fi
+  else
   SELFUPDATE=$(do_selfupdatecheck)
-  if [ $SELFUPDATE -eq 0 ]; then
-    whiptail --msgbox "You already have the latest version." 20 60 1
-  elif [ $SELFUPDATE -eq 1 ]; then
-    whiptail --msgbox "New version available!" 20 60 1
-  elif [ $SELFUPDATE -eq 2 ]; then
-    whiptail --msgbox "No update information is available for '$SELF'.
+  if [ "$SELFUPDATE" -eq 0 ]
+    then
+      whiptail --msgbox "You already have the latest version." 20 60 1
+    elif [ "$SELFUPDATE" -eq 1 ]
+    then
+      whiptail --msgbox "New version available!" 20 60 1
+    elif [ "$SELFUPDATE" -eq 2 ]
+    then
+      whiptail --msgbox "No update information is available for '$SELF'.
 Please check the Project home page at https://github.com/midwan/amigapi" 20 60 2
+  fi
   fi
 }
 
