@@ -779,11 +779,36 @@ do_update() {
 }
 
 do_selfupdatecheck() {
+  if ! hash curl 2>&-; then
+    whiptail --msgbox "Update checking requires curl. Check skipped." 20 60 2
+	return 2
+  fi
   
+  SUM_LATEST=$(curl $UPDATE_BASE/versions 2>&1 | grep $SELF | awk '{print $2}')
+  SUM_SELF=$(tail --lines=+2 "$0" | md5sum | awk '{print $1}')
+  
+  whiptail --msgbox "\
+Remote hash source: '$UPDATE_BASE/versions'
+Own hash: '$SUM_SELF' Remote hash: '$SUM_LATEST'" 20 60 2
+  
+  if [[ "" == $SUM_LATEST ]]; then
+    whiptail --msgbox "\
+No update information is available for '$SELF'. \
+Please check the project home page 'https://github.com/midwan/amigapi'." 20 60 2
+    return 2
+    
+  elif [[ "$SUM_LATEST" != "$SUM_SELF" ]]; then
+     whiptail --msgbox "NOTE: New version available!" 20 60 2
+    return 1
+  fi
+  
+  return 0
 }
 
 do_selfupdate() {
-
+  if [ $(do_selfupdatecheck) -eq 1 ]; then
+    
+  fi
 }
 
 do_audio() {
@@ -915,6 +940,25 @@ do_internationalisation_menu() {
       I2\ *) do_change_timezone ;;
       I3\ *) do_configure_keyboard ;;
       I4\ *) do_wifi_country ;;
+      *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
+    esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
+  fi
+}
+
+do_upgrade_menu() {
+  FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (AmigaPi)" --menu "Upgrade Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
+    "A1 Upgrade All" "Upgrade the system and AmigaPi" \
+    "A2 Upgrade System only" "Upgrade the system only" \
+    "A3 Upgrade AmigaPi only" "Upgrade this tool only" \
+    3>&1 1>&2 2>&3)
+  RET=$?
+  if [ $RET -eq 1 ]; then
+    return 0
+  elif [ $RET -eq 0 ]; then
+    case "$FUN" in
+      A1\ *) do_update ;;
+      A2\ *) do_sysupdate ;;
+      A3\ *) do_selfupdate ;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   fi
@@ -1115,7 +1159,7 @@ if [ "$INTERACTIVE" = True ]; then
   while true; do
     FUN=$(whiptail --title "AmigaPi Software Configuration Tool" --menu "Setup Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Finish --ok-button Select \
       "1 Installation" "Installation options" \
-      "2 Upgrade" "Upgrade all installed packages to the latest version" \
+      "2 Upgrade" "Upgrade options" \
       "3 Configuration" "Configure various system options" \
 	  "4 Start Amiga Emulator" "Start the installed uae4arm" \
       "5 File Manager" "Open Midnight Commander to manage your files" \
