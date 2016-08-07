@@ -50,8 +50,8 @@ get_init_sys() {
 }
 
 calc_wt_size() {
-  # NOTE: it's tempting to redirect stderr to /dev/null, so supress error 
-  # output from tput. However in this case, tput detects neither stdout or 
+  # NOTE: it's tempting to redirect stderr to /dev/null, so supress error
+  # output from tput. However in this case, tput detects neither stdout or
   # stderr is a tty and so only gives default 80, 24 values
   WT_HEIGHT=17
   WT_WIDTH=$(tput cols)
@@ -69,7 +69,7 @@ do_about() {
     whiptail --msgbox "\
 This tool provides an easy way to automatically \
 configure a stock Minibian installation as an \
-Amiga emulator machine. 
+Amiga emulator machine.
 After AmigaPi is installed, the system will boot \
 directly into UAE as fast as possible. \
 Additionally, a few additional tools (like a File Manager) \
@@ -132,7 +132,7 @@ do_expand_rootfs() {
     return 0
   fi
 
-  # NOTE: the NOOBS partition layout confuses parted. For now, let's only 
+  # NOTE: the NOOBS partition layout confuses parted. For now, let's only
   # agree to work with a sufficiently simple partition layout
   if [ "$PART_NUM" -ne 2 ]; then
     whiptail --msgbox "Your partition layout is not currently supported by this tool. You are probably using NOOBS, in which case your root filesystem is already expanded anyway." 20 60 2
@@ -265,8 +265,8 @@ EOF
 }
 
 get_hdmi_safe() {
- HDMISAFE=$(get_config_var hdmi_safe $CONFIG)
- if [ $HDMISAFE -eq 1 ]; then
+ HDMI_SAFE=$(get_config_var hdmi_safe $CONFIG)
+ if [ $HDMI_SAFE -eq 1 ]; then
    echo 1
  else
    echo 0
@@ -278,10 +278,10 @@ do_hdmi_safe() {
   CURRENT=0
   if [ $(get_hdmi_safe) -eq 0 ]; then
     DEFAULT=
-	STATUS=disabled
+    STATUS=disabled
   else
     CURRENT=1
-	STATUS=enabled
+    STATUS=enabled
   fi
   if [ "$INTERACTIVE" = True ]; then
     whiptail --yesno "HDMI Safe mode is currently $STATUS. Would you like to have HDMI Safe mode enabled?" $DEFAULT 20 60 2
@@ -294,25 +294,104 @@ do_hdmi_safe() {
   fi
   if [ $RET -eq 0 ]; then
     set_config_var hdmi_safe 1 $CONFIG
-	STATUS=enabled
+    STATUS=enabled
   elif [ $RET -eq 1 ]; then
     sed $CONFIG -i -e "s/^hdmi_safe/#hdmi_safe/"
-	set_config_var hdmi_safe 0 $CONFIG
-	STATUS=disabled
+    set_config_var hdmi_safe 0 $CONFIG
+    STATUS=disabled
   else
     return $RET
   fi
   if [ "$INTERACTIVE" = True ]; then
-    whiptail --msgbox "HDMI Safe mode is $STATUS" 20 60 1
+    whiptail --msgbox "HDMI Safe mode is now $STATUS. You should reboot your system to apply the changes." 20 60 1
   fi
 }
 
 get_hdmi_mode() {
-  whiptail --msgbox "Sorry, this feature is not implemented yet" 20 60 1
+  HDMI_GROUP=$(get_config_var hdmi_group $CONFIG)
+  HDMI_MODE=$(get_config_var hdmi_mode $CONFIG)
+  echo $HDMI_GROUP
 }
 
 do_hdmi_mode() {
-  whiptail --msgbox "Sorry, this feature is not implemented yet" 20 60 1
+  if [ $(get_hdmi_mode) -eq 0 ]; then
+    STATUS="Auto-detect from EDID"
+    MODE="Auto"
+  elif [ $(get_hdmi_mode) -eq 1 ]; then
+    STATUS="CEA (TV Standard)"
+    case $HDMI_MODE in
+      1) MODE="VGA (640x480)"
+      2) MODE="480p 60Hz"
+      3) MODE="480p 60Hz, 16:9 aspect ratio"
+      4) MODE="720p 60Hz"
+      5) MODE="1080i 60Hz"
+      6) MODE="480i 60Hz"
+      7) MODE="480i 60Hz, 16:9 aspect ratio"
+      8) MODE="240p 60Hz"
+      9) MODE="240p 60Hz, 16:9 aspect ratio"
+      10) MODE="480i 60Hz, pixel quadrupling"
+      11) MODE="480i 60Hz, pixel quadrupling, 16:9 aspect ratio"
+      12) MODE="240p 60Hz, pixel quadrupling"
+      13) MODE="240p 60Hz, pixel quadrupling, 16:9 aspect ratio"
+      14) MODE="480p 60Hz, pixel doubling"
+      15) MODE="480p 60Hz, pixel doubling, 16:9 aspect ratio"
+      16) MODE="1080p 60Hz"
+      17) MODE="576p 50Hz"
+      18) MODE="576p  50Hz, 16:9 aspect ratio"
+      19) MODE="720p 50Hz"
+      20) MODE="1080i 50Hz"
+      21) MODE="576i 50Hz"
+      22) MODE="576i 50Hz, 16:9 aspect ratio"
+      23) MODE="288p 50Hz"
+      24) MODE="288p 50Hz, 16:9 aspect ratio"
+      25) MODE="576i 50Hz, pixel quadrupling"
+      26) MODE="576i 50Hz, pixel quadrupling, 16:9 aspect ratio"
+      27) MODE="288p 50Hz, pixel quadrupling"
+      28) MODE="288p 50Hz, pixel quadrupling, 16:9 aspect ratio"
+      29) MODE="576p 50Hz, pixel doubling"
+      30) MODE="576p 50Hz, pixel doubling, 16:9 aspect ratio"
+      31) MODE="1080p 50Hz"
+      32) MDOE="1080p 24Hz"
+      33) MODE="1080p 25Hz"
+      34) MODE="1080p 30Hz"
+      35) MODE="480p 60Hz, pixel quadrupling"
+      36) MODE="480p 60Hz, pixel quadrupling, 16:9 aspect ratio"
+      37) MODE="576p 50Hz, pixel quadrupling"
+      38) MODE="576p 50Hz, pixel quadrupling, 16:9 aspect ratio"
+      39) MODE="1080i 50Hz, reduced blanking"
+      40) MODE="1080i 100Hz"
+      41) MODE="720p 100Hz"
+      42) MODE="576p 100Hz"
+      43) MODE="576p 100Hz, 16:9 aspect ratio"
+      44) MODE="576i 100Hz"
+      45) MODE="576i 100Hz 16:9 aspect ratio"
+      46) MODE="1080i 120Hz"
+      47) MODE="720p 120Hz"
+      48) MODE="480p 120Hz"
+      49) MODE="480p 120Hz, 16:9 aspect ratio"
+      50) MODE="480i 120Hz"
+      51) MODE="480i 120Hz, 16:9 aspect ratio"
+      52) MODE="576p 200Hz"
+      53) MODE="576p 200Hz, 16:9 aspect ratio"
+      54) MODE="576i 200Hz"
+      55) MODE="576i 200Hz, 16:9 aspect ratio"
+      56) MODE="480p 240Hz"
+      57) MODE="480p 240Hz, 16:9 aspect ratio"
+      58) MODE="480i 240Hz"
+      59) MODE="480i 240Hz, 16:9 aspect ratio"
+      *) MODE="Not set"
+    esac
+  elif [ $(get_hdmi_mode) -eq 2 ]; then
+    STATUS="DMT (Monitor Standard)"
+    case $HDMI_MODE in
+      1) MODE=""
+      *) MODE="Not set"
+    esac
+  fi
+  whiptail --msgbox "\
+  HDMI Group is currently set to $STATUS
+  Output format is set to $MODE \
+  " 20 60 1
 }
 
 get_overscan() {
@@ -409,7 +488,7 @@ do_wifi_setup() {
   then
     echo "Required package wpasupplicant not found. Setting up wpasupplicant..."
     apt-get -y update && apt-get -y install wpasupplicant crda firmware-brcm80211
-	# Configure WiFi
+    # Configure WiFi
     # TODO This needs to check if the wlan0 is already present first
     cat <<EOF >> /etc/network/interfaces
 
@@ -429,32 +508,32 @@ the WiFi interface will be activated. You can always re-run this tool \
 to make changes to your WiFi configuration.\
 " 20 70 1
   fi
-  
+
   if [ "$INTERACTIVE" = True ]; then
     WLAN_SSID=$(whiptail --inputbox "Please enter the WiFi SSID" 20 60 3>&1 1>&2 2>&3)
-	WLAN_PASS=$(whiptail --inputbox "Please enter the WiFi Password" 20 60 3>&1 1>&2 2>&3)
+    WLAN_PASS=$(whiptail --inputbox "Please enter the WiFi Password" 20 60 3>&1 1>&2 2>&3)
   else
     WLAN_SSID=$1
-	WLAN_PASS=$2
+    WLAN_PASS=$2
     true
   fi
-  
+
   if [ $? -eq 0 ]; then
-    whiptail --yesno "Save these settings? 
-	
-	SSID: \"$WLAN_SSID\" 
-	Password: \"$WLAN_PASS\"" 20 60 1
-    
-	if [ $? -eq 0 ]; then # yes
+    whiptail --yesno "Save these settings?
+
+    SSID: \"$WLAN_SSID\"
+    Password: \"$WLAN_PASS\"" 20 60 1
+
+    if [ $? -eq 0 ]; then # yes
       wpa_passphrase "$WLAN_SSID" "$WLAN_PASS" \
         >> /etc/wpa_supplicant/wpa_supplicant.conf
-	
-	  whiptail --yesno "Enable WiFi now?" 20 60 1
-	  if [ $? -eq 0 ]; then # yes
-	    ifup wlan0
-	  fi
+
+      whiptail --yesno "Enable WiFi now?" 20 60 1
+      if [ $? -eq 0 ]; then # yes
+        ifup wlan0
+      fi
     fi
-  fi	
+  fi
 }
 
 get_hostname() {
@@ -465,9 +544,9 @@ do_hostname() {
   if [ "$INTERACTIVE" = True ]; then
     whiptail --msgbox "\
 Please note: RFCs mandate that a hostname's labels \
-may contain only the ASCII letters 'a' through 'z' (case-insensitive), 
+may contain only the ASCII letters 'a' through 'z' (case-insensitive),
 the digits '0' through '9', and the hyphen.
-Hostname labels cannot begin or end with a hyphen. 
+Hostname labels cannot begin or end with a hyphen.
 No other symbols, punctuation characters, or blank spaces are permitted.\
 " 20 70 1
   fi
@@ -642,7 +721,7 @@ do_apply_os_config() {
     printf "Unrecognised flavour. Ignoring\n"
   fi
 
-  # TODO: currently ignores en_gb settings as we assume we are running in a 
+  # TODO: currently ignores en_gb settings as we assume we are running in a
   # first boot context, where UK English settings are default
   case "$NOOBSLANGUAGE" in
     "en")
@@ -734,11 +813,11 @@ do_internationalisation_menu() {
 do_configure_menu() {
   FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (AmigaPi)" --menu "Configure System" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
     "A1 WiFi" "Enable WiFi, asking for your SSID and Password" \
-	"A2 Internationalisation" "Set up language and regional settings to match your location" \
+    "A2 Internationalisation" "Set up language and regional settings to match your location" \
     "A3 Hostname" "Set the visible name for this Pi on a network" \
     "A4 SSH" "Enable/Disable remote command line access to your Pi using SSH" \
     "A5 Audio" "Force audio out through HDMI or 3.5mm jack" \
-	"A6 Video" "Configure HDMI video options" \
+    "A6 Video" "Configure HDMI video options" \
     "A0 Overclock" "Configure overclocking for your Pi" \
     3>&1 1>&2 2>&3)
   RET=$?
@@ -747,11 +826,11 @@ do_configure_menu() {
   elif [ $RET -eq 0 ]; then
     case "$FUN" in
       A1\ *) do_wifi_setup ;;
-	  A2\ *) do_internationalisation_menu ;;
+      A2\ *) do_internationalisation_menu ;;
       A3\ *) do_hostname ;;
       A4\ *) do_ssh ;;
       A5\ *) do_audio ;;
-	  A6\ *) do_video_menu ;;
+      A6\ *) do_video_menu ;;
       A0\ *) do_overclock ;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
@@ -761,7 +840,7 @@ do_configure_menu() {
 do_video_menu() {
 FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (AmigaPi)" --menu "Video Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
     "A1 Overscan" "You may need to configure overscan if black bars are present on display" \
-	"A2 HDMI Safe mode" "Enables maximum HDMI compatibility" \
+    "A2 HDMI Safe mode" "Enables maximum HDMI compatibility" \
     "A3 HDMI Mode" "Set the HDMI output format" \
     3>&1 1>&2 2>&3)
   RET=$?
@@ -770,7 +849,7 @@ FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (AmigaPi)" --me
   elif [ $RET -eq 0 ]; then
     case "$FUN" in
       A1\ *) do_overscan ;;
-	  A2\ *) do_hdmi_safe ;;
+      A2\ *) do_hdmi_safe ;;
       A3\ *) do_hdmi_mode ;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
@@ -799,7 +878,7 @@ apt-get -y update && apt-get -y install apt-utils apt-file \
   libguichan-0.8.1-1 libguichan-allegro-0.8.1-1 libguichan-sdl-0.8.1-1 libguichan-opengl-0.8.1-1 \
   libjpgalleg4.4 libxml2 \
   fuse ntfs-3g usbmount
-  
+
 # Disable debug messages on first console
 sed -e 's#^exit 0#/bin/dmesg -n 1\n\nexit 0#g' \
   -i /etc/rc.local
@@ -818,8 +897,8 @@ fi
 
 if [ -e /etc/init.d/00-splashscreen ]; then
   update-rc.d 00-splashscreen disable
-fi 
- 
+fi
+
 # Make mcedit the default editor
 update-alternatives --remove-all editor
 update-alternatives --install \
@@ -868,7 +947,7 @@ do_open_mc() {
     echo "Required package mc not found. Setting up mc..."
     apt-get -y update && apt-get -y install mc
   fi
-  
+
   mc
 }
 
@@ -876,7 +955,7 @@ do_open_uae() {
   if [ -f /opt/uae4arm-rpi/uae4arm-rpi2 ]
   then
     cd /opt/uae4arm-rpi/
-	./uae4arm-rpi2 -f conf/autostart.uae
+    ./uae4arm-rpi2 -f conf/autostart.uae
   else
     whiptail --msgbox "Could not find the emulator in the expected location. Please install AmigaPi first!" 20 60 1
   fi
@@ -915,7 +994,7 @@ if [ "$INTERACTIVE" = True ]; then
     echo "Required packages not found, installing them now..."
     apt-get update && apt-get -y install whiptail lua5.2
   fi
-  
+
   if ! mountpoint -q /boot; then
     whiptail --msgbox "The boot partition is not mounted - cannot configure. Note that amigapi is intended for use on Minibian only and cannot be guaranteed to work on other operating systems." 20 60 1
     exit 1
@@ -930,10 +1009,10 @@ if [ "$INTERACTIVE" = True ]; then
       "3 Setup AmigaPi" "Installs and configures system to auto-boot in UAE" \
       "4 Configure System" "Configure various system options" \
       "5 File Manager" "Open Midnight Commander to manage your files" \
-	  "6 Start Amiga Emulator" "Start the installed uae4arm" \
+      "6 Start Amiga Emulator" "Start the installed uae4arm" \
       "8 Reboot" "Reboot the system" \
-	  "9 Shutdown" "Shutdown the system" \
-	  "0 About AmigaPi" "Information about this configuration tool" \
+      "9 Shutdown" "Shutdown the system" \
+      "0 About AmigaPi" "Information about this configuration tool" \
       3>&1 1>&2 2>&3)
     RET=$?
     if [ $RET -eq 1 ]; then
@@ -945,9 +1024,9 @@ if [ "$INTERACTIVE" = True ]; then
         3\ *) do_amigapi_setup ;;
         4\ *) do_configure_menu ;;
         5\ *) do_open_mc ;;
-		6\ *) do_run_uae ;;
-		8\ *) do_reboot ;;
-		9\ *) do_shutdown ;;
+        6\ *) do_run_uae ;;
+        8\ *) do_reboot ;;
+        9\ *) do_shutdown ;;
         0\ *) do_about ;;
         *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
       esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
