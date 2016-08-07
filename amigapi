@@ -669,11 +669,7 @@ do_video_menu() {
 FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (AmigaPi)" --menu "Video Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
     "A1 Overscan" "You may need to configure overscan if black bars are present on display" \
 	"A2 HDMI Safe mode" "Enables maximum HDMI compatibility" \
-    "A3 Hostname" "Set the visible name for this Pi on a network" \
-    "A4 SSH" "Enable/Disable remote command line access to your Pi using SSH" \
-    "A5 Audio" "Force audio out through HDMI or 3.5mm jack" \
-	"A6 Overscan" "You may need to configure overscan if black bars are present on display" \
-    "A0 Overclock" "Configure overclocking for your Pi" \
+    "A3 HDMI Mode" "Set the HDMI output format" \
     3>&1 1>&2 2>&3)
   RET=$?
   if [ $RET -eq 1 ]; then
@@ -682,14 +678,18 @@ FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (AmigaPi)" --me
     case "$FUN" in
       A1\ *) do_overscan ;;
 	  A2\ *) do_hdmi_safe ;;
-      A3\ *) do_hostname ;;
-      A4\ *) do_ssh ;;
-      A5\ *) do_audio ;;
-	  A6\ *) do_overscan ;;
-      A0\ *) do_overclock ;;
+      A3\ *) do_hdmi_mode ;;
       *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
     esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   fi
+}
+
+do_hdmi_safe() {
+  whiptail --msgbox "Sorry, this feature is not implemented yet" 20 60 1 ;;
+}
+
+do_hdmi_mode() {
+  whiptail --msgbox "Sorry, this feature is not implemented yet" 20 60 1 ;;
 }
 
 do_amigapi_setup() {
