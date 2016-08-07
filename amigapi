@@ -840,6 +840,16 @@ do_open_mc() {
   mc
 }
 
+do_open_uae() {
+  if [ -f /opt/uae4arm-rpi/uae4arm-rpi2 ]
+  then
+    cd /opt/uae4arm-rpi/
+	./uae4arm-rpi2 -f conf/autostart.uae
+  else
+    whiptail --msgbox "Could not find the emulator in the expected location. Please install AmigaPi first!" 20 60 1
+  fi
+}
+
 do_reboot() {
   reboot now
 }
@@ -877,6 +887,7 @@ if [ "$INTERACTIVE" = True ]; then
       "3 Setup AmigaPi" "Installs and configures system to auto-boot in UAE" \
       "4 Configure System" "Configure various system options" \
       "5 File Manager" "Open Midnight Commander to manage your files" \
+	  "6 Start Amiga Emulator" "Start the installed uae4arm" \
       "8 Reboot" "Reboot the system" \
 	  "9 Shutdown" "Shutdown the system" \
 	  "0 About AmigaPi" "Information about this configuration tool" \
@@ -891,6 +902,7 @@ if [ "$INTERACTIVE" = True ]; then
         3\ *) do_amigapi_setup ;;
         4\ *) do_configure_menu ;;
         5\ *) do_open_mc ;;
+		6\ *) do_run_uae ;;
 		8\ *) do_reboot ;;
 		9\ *) do_shutdown ;;
         0\ *) do_about ;;
