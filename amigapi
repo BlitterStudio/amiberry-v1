@@ -278,10 +278,13 @@ do_hdmi_safe() {
   CURRENT=0
   if [ $(get_hdmi_safe) -eq 0 ]; then
     DEFAULT=
-	CURRENT=1
+	STATUS=disabled
+  else
+    CURRENT=1
+	STATUS=enabled
   fi
   if [ "$INTERACTIVE" = True ]; then
-    whiptail --yesno "Would you like to enable HDMI Safe mode?" $DEFAULT 20 60 2
+    whiptail --yesno "HDMI Safe mode is currently $STATUS. Would you like to have HDMI Safe mode enabled?" $DEFAULT 20 60 2
     RET=$?
   else
     RET=$1
@@ -311,6 +314,7 @@ get_hdmi_mode() {
 do_hdmi_mode() {
   whiptail --msgbox "Sorry, this feature is not implemented yet" 20 60 1
 }
+
 get_overscan() {
   OVS=$(get_config_var disable_overscan $CONFIG)
   if [ $OVS -eq 1 ]; then
@@ -397,6 +401,60 @@ do_wifi_country() {
     ASK_TO_REBOOT=1
   fi
   IFS=$oIFS
+}
+
+do_wifi_setup() {
+  echo Checking for wpasupplicant:
+  if [ $(dpkg-query -W -f='${Status}\n' wpasupplicant | grep -c "ok installed") -eq 0 ];
+  then
+    echo "Required package wpasupplicant not found. Setting up wpasupplicant..."
+    apt-get -y update && apt-get -y install wpasupplicant crda firmware-brcm80211
+	# Configure WiFi
+    # TODO This needs to check if the wlan0 is already present first
+    cat <<EOF >> /etc/network/interfaces
+
+allow-hotplug wlan0
+iface wlan0 inet dhcp
+wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf
+
+EOF
+
+  fi
+
+  if [ "$INTERACTIVE" = True ]; then
+    whiptail --msgbox "\
+Please note: You will be asked to enter your WiFi SSID and Password. \
+All details will be saved in the wpa_supplicant.conf file, after which \
+the WiFi interface will be activated. You can always re-run this tool \
+to make changes to your WiFi configuration.\
+" 20 70 1
+  fi
+  
+  if [ "$INTERACTIVE" = True ]; then
+    WLAN_SSID=$(whiptail --inputbox "Please enter the WiFi SSID" 20 60 3>&1 1>&2 2>&3)
+	WLAN_PASS=$(whiptail --inputbox "Please enter the WiFi Password" 20 60 3>&1 1>&2 2>&3)
+  else
+    WLAN_SSID=$1
+	WLAN_PASS=$2
+    true
+  fi
+  
+  if [ $? -eq 0 ]; then
+    whiptail --yesno "Save these settings? 
+	
+	SSID: \"$WLAN_SSID\" 
+	Password: \"$WLAN_PASS\"" 20 60 1
+    
+	if [ $? -eq 0 ]; then # yes
+      wpa_passphrase "$WLAN_SSID" "$WLAN_PASS" \
+        >> /etc/wpa_supplicant/wpa_supplicant.conf
+	
+	  whiptail --yesno "Enable WiFi now?" 20 60 1
+	  if [ $? -eq 0 ]; then # yes
+	    ifup wlan0
+	  fi
+    fi
+  fi	
 }
 
 get_hostname() {
@@ -498,7 +556,7 @@ set_overclock() {
   fi
 }
 
-clear_overclock () {
+clear_overclock() {
   clear_config_var arm_freq $CONFIG &&
   clear_config_var core_freq $CONFIG &&
   clear_config_var sdram_freq $CONFIG &&
@@ -565,17 +623,6 @@ do_audio() {
   if [ $? -eq 0 ]; then
     amixer cset numid=3 "$AUDIO_OUT"
   fi
-}
-
-do_finish() {
-  if [ $ASK_TO_REBOOT -eq 1 ]; then
-    whiptail --yesno "Would you like to reboot now?" 20 60 2
-    if [ $? -eq 0 ]; then # yes
-      sync
-      reboot
-    fi
-  fi
-  exit 0
 }
 
 # $1 = filename, $2 = key name
@@ -815,60 +862,6 @@ Remember that once you configure it, you can disable the GUI \
 on startup so that it boots directly into Workbench." 20 70 1
 }
 
-do_wifi_setup() {
-  echo Checking for wpasupplicant:
-  if [ $(dpkg-query -W -f='${Status}\n' wpasupplicant | grep -c "ok installed") -eq 0 ];
-  then
-    echo "Required package wpasupplicant not found. Setting up wpasupplicant..."
-    apt-get -y update && apt-get -y install wpasupplicant crda firmware-brcm80211
-	# Configure WiFi
-    # TODO This needs to check if the wlan0 is already present first
-    cat <<EOF >> /etc/network/interfaces
-
-allow-hotplug wlan0
-iface wlan0 inet dhcp
-wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf
-
-EOF
-
-  fi
-
-  if [ "$INTERACTIVE" = True ]; then
-    whiptail --msgbox "\
-Please note: You will be asked to enter your WiFi SSID and Password. \
-All details will be saved in the wpa_supplicant.conf file, after which \
-the WiFi interface will be activated. You can always re-run this tool \
-to make changes to your WiFi configuration.\
-" 20 70 1
-  fi
-  
-  if [ "$INTERACTIVE" = True ]; then
-    WLAN_SSID=$(whiptail --inputbox "Please enter the WiFi SSID" 20 60 3>&1 1>&2 2>&3)
-	WLAN_PASS=$(whiptail --inputbox "Please enter the WiFi Password" 20 60 3>&1 1>&2 2>&3)
-  else
-    WLAN_SSID=$1
-	WLAN_PASS=$2
-    true
-  fi
-  
-  if [ $? -eq 0 ]; then
-    whiptail --yesno "Save these settings? 
-	
-	SSID: \"$WLAN_SSID\" 
-	Password: \"$WLAN_PASS\"" 20 60 1
-    
-	if [ $? -eq 0 ]; then # yes
-      wpa_passphrase "$WLAN_SSID" "$WLAN_PASS" \
-        >> /etc/wpa_supplicant/wpa_supplicant.conf
-	
-	  whiptail --yesno "Enable WiFi now?" 20 60 1
-	  if [ $? -eq 0 ]; then # yes
-	    ifup wlan0
-	  fi
-    fi
-  fi	
-}
-
 do_open_mc() {
   if [ $(dpkg-query -W -f='${Status}\n' mc | grep -c "ok installed") -eq 0 ];
   then
@@ -897,6 +890,17 @@ do_shutdown() {
   shutdown now
 }
 
+do_finish() {
+  if [ $ASK_TO_REBOOT -eq 1 ]; then
+    whiptail --yesno "Would you like to reboot now?" 20 60 2
+    if [ $? -eq 0 ]; then # yes
+      sync
+      reboot
+    fi
+  fi
+  exit 0
+}
+
 if [ $(id -u) -ne 0 ]; then
   printf "Script must be run as root. Try 'sudo sh ./amigapi'\n"
   exit 1
@@ -908,12 +912,12 @@ fi
 if [ "$INTERACTIVE" = True ]; then
   if [ $(dpkg-query -W -f='${Status}\n' whiptail | grep -c "ok installed") -eq 0 ];
   then
-    echo "Package whiptail not installed. Setting up whiptail..."
-    apt-get update && apt-get -y install whiptail
+    echo "Required packages not found, installing them now..."
+    apt-get update && apt-get -y install whiptail lua5.2
   fi
   
   if ! mountpoint -q /boot; then
-    whiptail --msgbox "The boot partition is not mounted - cannot configure. Note that amigapi-setup is intended for use on Minibian only and cannot be guaranteed to work on other operating systems." 20 60 1
+    whiptail --msgbox "The boot partition is not mounted - cannot configure. Note that amigapi is intended for use on Minibian only and cannot be guaranteed to work on other operating systems." 20 60 1
     exit 1
   fi
   [ -e $CONFIG ] || touch $CONFIG
