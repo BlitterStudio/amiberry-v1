@@ -807,7 +807,7 @@ Please check the project home page 'https://github.com/midwan/amigapi'." 20 60 2
 
 do_selfupdate() {
   if [ $(do_selfupdatecheck) -eq 1 ]; then
-    
+    whiptail --msgbox "This is not implemented yet, sorry" 20 60 2
   fi
 }
 
