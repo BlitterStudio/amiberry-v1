@@ -779,35 +779,32 @@ do_update() {
 }
 
 do_selfupdatecheck() {
-  if ! hash curl 2>&-; then
-    whiptail --msgbox "Update checking requires curl. Check skipped." 20 60 2
-	return 2
-  fi
-  
+  SELF=$(basename "$0")
+  UPDATE_BASE=https://raw.githubusercontent.com/midwan/amigapi/master
   SUM_LATEST=$(curl $UPDATE_BASE/versions 2>&1 | grep $SELF | awk '{print $2}')
   SUM_SELF=$(tail --lines=+2 "$0" | md5sum | awk '{print $1}')
   
-  whiptail --msgbox "\
-Remote hash source: '$UPDATE_BASE/versions'
-Own hash: '$SUM_SELF' Remote hash: '$SUM_LATEST'" 20 60 2
-  
   if [[ "" == $SUM_LATEST ]]; then
-    whiptail --msgbox "\
-No update information is available for '$SELF'. \
-Please check the project home page 'https://github.com/midwan/amigapi'." 20 60 2
-    return 2
+  #No update information is available
+    echo 2
     
   elif [[ "$SUM_LATEST" != "$SUM_SELF" ]]; then
-     whiptail --msgbox "NOTE: New version available!" 20 60 2
-    return 1
+  #New version available!
+    echo 1
   fi
-  
-  return 0
 }
 
 do_selfupdate() {
-  if [ $(do_selfupdatecheck) -eq 1 ]; then
-    whiptail --msgbox "This is not implemented yet, sorry" 20 60 2
+  if ! hash curl 2>&-; then
+    whiptail --msgbox "Update checking requires curl. Check skipped." 20 60 1
+	return 1
+  fi
+  SELFUPDATE=$(do_selfupdatecheck)
+  if [ $SELFUPDATE -eq 1 ]; then
+    whiptail --msgbox "New version available!" 20 60 1
+  elif [ $SELFUPDATE -eq 2 ]; then
+    whiptail --msgbox "No update information is available for '$SELF'.
+Please check the Project home page at https://github.com/midwan/amigapi" 20 60 2
   fi
 }
 
@@ -1011,7 +1008,6 @@ FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (AmigaPi)" --me
 }
 
 do_amigapi_setup() {
-# Tweak boot options in /boot/config.txt assign half the memory to the GPU
 cat <<EOF > $CONFIG
 gpu_mem_256=128
 gpu_mem_512=256
