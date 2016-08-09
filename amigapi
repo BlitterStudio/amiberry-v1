@@ -4,6 +4,7 @@
 # See LICENSE file for copyright and license details
 
 INTERACTIVE=True
+ADVANCED=False
 ASK_TO_REBOOT=0
 CONFIG=/boot/config.txt
 CMDLINE=/boot/cmdline.txt
@@ -11,39 +12,39 @@ SELF=$(basename "$0")
 UPDATE_BASE=https://raw.githubusercontent.com/midwan/amigapi/master
 
 is_pione() {
-   if grep -q "^Revision\s*:\s*00[0-9a-fA-F][0-9a-fA-F]$" /proc/cpuinfo; then
-      return 0
-   elif  grep -q "^Revision\s*:\s*[ 123][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]0[0-36][0-9a-fA-F]$" /proc/cpuinfo ; then
-      return 0
-   else
-      return 1
-   fi
+  if grep -q "^Revision\s*:\s*00[0-9a-fA-F][0-9a-fA-F]$" /proc/cpuinfo; then
+    return 0
+    elif  grep -q "^Revision\s*:\s*[ 123][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]0[0-36][0-9a-fA-F]$" /proc/cpuinfo ; then
+    return 0
+  else
+    return 1
+  fi
 }
 
 is_pitwo() {
-   grep -q "^Revision\s*:\s*[ 123][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]04[0-9a-fA-F]$" /proc/cpuinfo
-   return $?
+  grep -q "^Revision\s*:\s*[ 123][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]04[0-9a-fA-F]$" /proc/cpuinfo
+  return $?
 }
 
 is_pizero() {
-   grep -q "^Revision\s*:\s*[ 123][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]09[0-9a-fA-F]$" /proc/cpuinfo
-   return $?
+  grep -q "^Revision\s*:\s*[ 123][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]09[0-9a-fA-F]$" /proc/cpuinfo
+  return $?
 }
 
 get_pi_type() {
-   if is_pione; then
-      echo 1
-   elif is_pitwo; then
-      echo 2
-   else
-      echo 0
-   fi
+  if is_pione; then
+    echo 1
+    elif is_pitwo; then
+    echo 2
+  else
+    echo 0
+  fi
 }
 
 get_init_sys() {
   if command -v systemctl > /dev/null && systemctl | grep -q '\-\.mount'; then
     SYSTEMD=1
-  elif [ -f /etc/init.d/cron ] && [ ! -h /etc/init.d/cron ]; then
+    elif [ -f /etc/init.d/cron ] && [ ! -h /etc/init.d/cron ]; then
     SYSTEMD=0
   else
     echo "Unrecognised init system"
@@ -52,12 +53,9 @@ get_init_sys() {
 }
 
 calc_wt_size() {
-  # NOTE: it's tempting to redirect stderr to /dev/null, so supress error
-  # output from tput. However in this case, tput detects neither stdout or
-  # stderr is a tty and so only gives default 80, 24 values
   WT_HEIGHT=17
   WT_WIDTH=$(tput cols)
-
+  
   if [ -z "$WT_WIDTH" ] || [ "$WT_WIDTH" -lt 60 ]; then
     WT_WIDTH=80
   fi
@@ -68,13 +66,13 @@ calc_wt_size() {
 }
 
 do_about() {
-    whiptail --msgbox "\
+  whiptail --msgbox "\
 This tool provides an easy way to automatically \
 configure a stock Minibian installation as an \
-Amiga emulator machine.
-After AmigaPi is installed, the system will boot \
-directly into UAE as fast as possible. \
-Additionally, a few additional tools (like a File Manager) \
+Amiga emulation environment.
+After AmigaPi is installed, the system will be \
+configured to boot directly into UAE as fast as possible. \
+Additionally, a few tools (like a File Manager) \
 will also be installed.
 
 You can always re-run this tool to perform any of the \
@@ -82,7 +80,7 @@ available functions.
 
 Created by Dimitris Panokostas.
 Visit http://blitterstudio.com/amigapi/ for the latest in this project.
-" 20 70 1
+  " 20 70 1
 }
 
 get_can_expand() {
@@ -96,18 +94,18 @@ get_can_expand() {
     fi
     ROOT_PART=$(readlink /dev/root)
   fi
-
+  
   PART_NUM=${ROOT_PART#mmcblk0p}
   if [ "$PART_NUM" = "$ROOT_PART" ]; then
     echo 1
     exit
   fi
-
+  
   if [ "$PART_NUM" -ne 2 ]; then
     echo 1
     exit
   fi
-
+  
   LAST_PART_NUM=$(parted /dev/mmcblk0 -ms unit s p | tail -n 1 | cut -f 1 -d:)
   if [ $LAST_PART_NUM -ne $PART_NUM ]; then
     echo 1
@@ -127,33 +125,33 @@ do_expand_rootfs() {
     fi
     ROOT_PART=$(readlink /dev/root)
   fi
-
+  
   PART_NUM=${ROOT_PART#mmcblk0p}
   if [ "$PART_NUM" = "$ROOT_PART" ]; then
     whiptail --msgbox "$ROOT_PART is not an SD card. Don't know how to expand" 20 60 2
     return 0
   fi
-
+  
   # NOTE: the NOOBS partition layout confuses parted. For now, let's only
   # agree to work with a sufficiently simple partition layout
   if [ "$PART_NUM" -ne 2 ]; then
     whiptail --msgbox "Your partition layout is not currently supported by this tool. You are probably using NOOBS, in which case your root filesystem is already expanded anyway." 20 60 2
     return 0
   fi
-
+  
   echo Checking for parted:
   if [ $(dpkg-query -W -f='${Status}\n' parted | grep -c "ok installed") -eq 0 ];
   then
     echo "Parted is not installed. Setting up parted..."
     apt-get --force-yes --yes install parted
   fi
-
+  
   LAST_PART_NUM=$(parted /dev/mmcblk0 -ms unit s p | tail -n 1 | cut -f 1 -d:)
   if [ $LAST_PART_NUM -ne $PART_NUM ]; then
     whiptail --msgbox "$ROOT_PART is not the last partition. Don't know how to expand" 20 60 2
     return 0
   fi
-
+  
   # Get the starting offset of the root partition
   PART_START=$(parted /dev/mmcblk0 -ms unit s p | grep "^${PART_NUM}" | cut -f 2 -d: | sed 's/[^0-9]//g')
   [ "$PART_START" ] || return 1
@@ -172,7 +170,7 @@ p
 w
 EOF
   ASK_TO_REBOOT=1
-
+  
   # now set up an init.d script
 cat <<EOF > /etc/init.d/resize2fs_once &&
 #!/bin/sh
@@ -228,7 +226,7 @@ if not made_change then
   print(key.."="..value)
 end
 EOF
-mv "$3.bak" "$3"
+  mv "$3.bak" "$3"
 }
 
 clear_config_var() {
@@ -243,7 +241,7 @@ for line in file:lines() do
   print(line)
 end
 EOF
-mv "$2.bak" "$2"
+  mv "$2.bak" "$2"
 }
 
 get_config_var() {
@@ -267,12 +265,12 @@ EOF
 }
 
 get_hdmi_safe() {
- HDMI_SAFE=$(get_config_var hdmi_safe $CONFIG)
- if [ $HDMI_SAFE -eq 1 ]; then
-   echo 1
- else
-   echo 0
- fi
+  HDMI_SAFE=$(get_config_var hdmi_safe $CONFIG)
+  if [ $HDMI_SAFE -eq 1 ]; then
+    echo 1
+  else
+    echo 0
+  fi
 }
 
 do_hdmi_safe() {
@@ -297,7 +295,7 @@ do_hdmi_safe() {
   if [ $RET -eq 0 ]; then
     set_config_var hdmi_safe 1 $CONFIG
     STATUS=enabled
-  elif [ $RET -eq 1 ]; then
+    elif [ $RET -eq 1 ]; then
     sed $CONFIG -i -e "s/^hdmi_safe/#hdmi_safe/"
     set_config_var hdmi_safe 0 $CONFIG
     STATUS=disabled
@@ -322,7 +320,7 @@ get_hdmi_mode() {
 do_hdmi_mode() {
   if [ $(get_hdmi_mode) -eq 0 ]; then
     STATUS="Auto-detect from EDID"
-  elif [ $(get_hdmi_mode) -eq 1 ]; then
+    elif [ $(get_hdmi_mode) -eq 1 ]; then
     STATUS="CEA (TV Standard)"
     case $HDMI_MODE in
       1) MODE="VGA (640x480)" ;;
@@ -386,95 +384,95 @@ do_hdmi_mode() {
       59) MODE="480i 240Hz, 16:9 aspect ratio" ;;
       *) MODE="Not set" ;;
     esac
-  elif [ $(get_hdmi_mode) -eq 2 ]; then
+    elif [ $(get_hdmi_mode) -eq 2 ]; then
     STATUS="DMT (Monitor Standard)"
     case $HDMI_MODE in
-        1) MODE="640x350 85Hz" ;;
-        2) MODE="640x400 85Hz" ;;
-        3) MODE="720x400 85Hz" ;;
-        4) MODE="640x480 60Hz" ;;
-        5) MODE="640x480 72Hz" ;;
-        6) MODE="640x480 75Hz" ;;
-        7) MODE="640x480 85Hz" ;;
-        8) MODE="800x600 56Hz" ;;
-        9) MODE="800x600 60Hz" ;;
-        10) MODE="800x600 72Hz" ;;
-        11) MODE="800x600 75Hz" ;;
-        12) MODE="800x600 85Hz" ;;
-        13) MODE="800x600 120Hz" ;;
-        14) MODE="848x480 60Hz" ;;
-        15) MODE="1024x768 43Hz, incompatible with the Raspberry Pi" ;;
-        16) MODE="1024x768 60Hz" ;;
-        17) MODE="1024x768 70Hz" ;;
-        18) MODE="1024x768 75Hz" ;;
-        19) MODE="1024x768 85Hz" ;;
-        20) MODE="1024x768 120Hz" ;;
-        21) MODE="1152x864 75Hz" ;;
-        22) MODE="1280x768 reduced blanking" ;;
-        23) MODE="1280x768 60Hz" ;;
-        24) MODE="1280x768 75Hz" ;;
-        25) MODE="1280x768 85Hz" ;;
-        26) MODE="1280x768 120Hz reduced blanking" ;;
-        27) MODE="1280x800 reduced blanking" ;;
-        28) MODE="1280x800 60Hz" ;;
-        29) MODE="1280x800 75Hz" ;;
-        30) MODE="1280x800 85Hz" ;;
-        31) MODE="1280x800 120Hz reduced blanking" ;;
-        32) MODE="1280x960 60Hz" ;;
-        33) MODE="1280x960 85Hz" ;;
-        34) MODE="1280x960 120Hz reduced blanking" ;;
-        35) MODE="1280x1024 60Hz" ;;
-        36) MODE="1280x1024 75Hz" ;;
-        37) MODE="1280x1024 85Hz" ;;
-        38) MODE="1280x1024 120Hz reduced blanking" ;;
-        39) MODE="1360x768 60Hz" ;;
-        40) MODE="1360x768 120Hz reduced blanking" ;;
-        41) MODE="1400x1050 reduced blanking" ;;
-        42) MODE="1400x1050 60Hz" ;;
-        43) MODE="1400x1050 75Hz" ;;
-        44) MODE="1400x1050 85Hz" ;;
-        45) MODE="1400x1050 120Hz reduced blanking" ;;
-        46) MODE="1440x900 reduced blanking" ;;
-        47) MODE="1440x900 60Hz" ;;
-        48) MODE="1440x900 75Hz" ;;
-        49) MODE="1440x900 85Hz" ;;
-        50) MODE="1440x900 120Hz reduced blanking" ;;
-        51) MODE="1600x1200 60Hz" ;;
-        52) MODE="1600x1200 65Hz" ;;
-        53) MODE="1600x1200 70Hz" ;;
-        54) MODE="1600x1200 75Hz" ;;
-        55) MODE="1600x1200 85Hz" ;;
-        56) MODE="1600x1200 120Hz reduced blanking" ;;
-        57) MODE="1680x1050 reduced blanking" ;;
-        58) MODE="1680x1050 60Hz" ;;
-        59) MODE="1680x1050 75Hz" ;;
-        60) MODE="1680x1050 85Hz" ;;
-        61) MODE="1680x1050 120Hz reduced blanking" ;;
-        62) MODE="1792x1344 60Hz" ;;
-        63) MODE="1792x1344 75Hz" ;;
-        64) MODE="1792x1344 120Hz reduced blanking" ;;
-        65) MODE="1856x1392 60Hz" ;;
-        66) MODE="1856x1392 75Hz" ;;
-        67) MODE="1856x1392 120Hz reduced blanking" ;;
-        68) MODE="1920x1200 reduced blanking" ;;
-        69) MODE="1920x1200 60Hz" ;;
-        70) MODE="1920x1200 75Hz" ;;
-        71) MODE="1920x1200 85Hz" ;;
-        72) MODE="1920x1200 120Hz reduced blanking" ;;
-        73) MODE="1920x1440 60Hz" ;;
-        74) MODE="1920x1440 75Hz" ;;
-        75) MODE="1920x1440 120Hz reduced blanking" ;;
-        76) MODE="2560x1600 reduced blanking" ;;
-        77) MODE="2560x1600 60Hz" ;;
-        78) MODE="2560x1600 75Hz" ;;
-        79) MODE="2560x1600 85Hz" ;;
-        80) MODE="2560x1600 120Hz reduced blanking" ;;
-        81) MODE="1366x768 60Hz" ;;
-        82) MODE="1920x1080 60Hz 1080p" ;;
-        83) MODE="1600x900 reduced blanking" ;;
-        84) MODE="2048x1152 reduced blanking" ;;
-        85) MODE="1280x720 60Hz 720p" ;;
-        86) MODE="1366x768 reduced blanking" ;;
+      1) MODE="640x350 85Hz" ;;
+      2) MODE="640x400 85Hz" ;;
+      3) MODE="720x400 85Hz" ;;
+      4) MODE="640x480 60Hz" ;;
+      5) MODE="640x480 72Hz" ;;
+      6) MODE="640x480 75Hz" ;;
+      7) MODE="640x480 85Hz" ;;
+      8) MODE="800x600 56Hz" ;;
+      9) MODE="800x600 60Hz" ;;
+      10) MODE="800x600 72Hz" ;;
+      11) MODE="800x600 75Hz" ;;
+      12) MODE="800x600 85Hz" ;;
+      13) MODE="800x600 120Hz" ;;
+      14) MODE="848x480 60Hz" ;;
+      15) MODE="1024x768 43Hz, incompatible with the Raspberry Pi" ;;
+      16) MODE="1024x768 60Hz" ;;
+      17) MODE="1024x768 70Hz" ;;
+      18) MODE="1024x768 75Hz" ;;
+      19) MODE="1024x768 85Hz" ;;
+      20) MODE="1024x768 120Hz" ;;
+      21) MODE="1152x864 75Hz" ;;
+      22) MODE="1280x768 reduced blanking" ;;
+      23) MODE="1280x768 60Hz" ;;
+      24) MODE="1280x768 75Hz" ;;
+      25) MODE="1280x768 85Hz" ;;
+      26) MODE="1280x768 120Hz reduced blanking" ;;
+      27) MODE="1280x800 reduced blanking" ;;
+      28) MODE="1280x800 60Hz" ;;
+      29) MODE="1280x800 75Hz" ;;
+      30) MODE="1280x800 85Hz" ;;
+      31) MODE="1280x800 120Hz reduced blanking" ;;
+      32) MODE="1280x960 60Hz" ;;
+      33) MODE="1280x960 85Hz" ;;
+      34) MODE="1280x960 120Hz reduced blanking" ;;
+      35) MODE="1280x1024 60Hz" ;;
+      36) MODE="1280x1024 75Hz" ;;
+      37) MODE="1280x1024 85Hz" ;;
+      38) MODE="1280x1024 120Hz reduced blanking" ;;
+      39) MODE="1360x768 60Hz" ;;
+      40) MODE="1360x768 120Hz reduced blanking" ;;
+      41) MODE="1400x1050 reduced blanking" ;;
+      42) MODE="1400x1050 60Hz" ;;
+      43) MODE="1400x1050 75Hz" ;;
+      44) MODE="1400x1050 85Hz" ;;
+      45) MODE="1400x1050 120Hz reduced blanking" ;;
+      46) MODE="1440x900 reduced blanking" ;;
+      47) MODE="1440x900 60Hz" ;;
+      48) MODE="1440x900 75Hz" ;;
+      49) MODE="1440x900 85Hz" ;;
+      50) MODE="1440x900 120Hz reduced blanking" ;;
+      51) MODE="1600x1200 60Hz" ;;
+      52) MODE="1600x1200 65Hz" ;;
+      53) MODE="1600x1200 70Hz" ;;
+      54) MODE="1600x1200 75Hz" ;;
+      55) MODE="1600x1200 85Hz" ;;
+      56) MODE="1600x1200 120Hz reduced blanking" ;;
+      57) MODE="1680x1050 reduced blanking" ;;
+      58) MODE="1680x1050 60Hz" ;;
+      59) MODE="1680x1050 75Hz" ;;
+      60) MODE="1680x1050 85Hz" ;;
+      61) MODE="1680x1050 120Hz reduced blanking" ;;
+      62) MODE="1792x1344 60Hz" ;;
+      63) MODE="1792x1344 75Hz" ;;
+      64) MODE="1792x1344 120Hz reduced blanking" ;;
+      65) MODE="1856x1392 60Hz" ;;
+      66) MODE="1856x1392 75Hz" ;;
+      67) MODE="1856x1392 120Hz reduced blanking" ;;
+      68) MODE="1920x1200 reduced blanking" ;;
+      69) MODE="1920x1200 60Hz" ;;
+      70) MODE="1920x1200 75Hz" ;;
+      71) MODE="1920x1200 85Hz" ;;
+      72) MODE="1920x1200 120Hz reduced blanking" ;;
+      73) MODE="1920x1440 60Hz" ;;
+      74) MODE="1920x1440 75Hz" ;;
+      75) MODE="1920x1440 120Hz reduced blanking" ;;
+      76) MODE="2560x1600 reduced blanking" ;;
+      77) MODE="2560x1600 60Hz" ;;
+      78) MODE="2560x1600 75Hz" ;;
+      79) MODE="2560x1600 85Hz" ;;
+      80) MODE="2560x1600 120Hz reduced blanking" ;;
+      81) MODE="1366x768 60Hz" ;;
+      82) MODE="1920x1080 60Hz 1080p" ;;
+      83) MODE="1600x900 reduced blanking" ;;
+      84) MODE="2048x1152 reduced blanking" ;;
+      85) MODE="1280x720 60Hz 720p" ;;
+      86) MODE="1366x768 reduced blanking" ;;
       *) MODE="Not set" ;;
     esac
   fi
@@ -497,8 +495,8 @@ do_overscan() {
   DEFAULT=--defaultno
   CURRENT=0
   if [ $(get_overscan) -eq 0 ]; then
-      DEFAULT=
-      CURRENT=1
+    DEFAULT=
+    CURRENT=1
   fi
   if [ "$INTERACTIVE" = True ]; then
     whiptail --yesno "Would you like to enable compensation for displays with overscan?" $DEFAULT 20 60 2
@@ -512,7 +510,7 @@ do_overscan() {
   if [ $RET -eq 0 ] ; then
     set_config_var disable_overscan 0 $CONFIG
     STATUS=enabled
-  elif [ $RET -eq 1 ]; then
+    elif [ $RET -eq 1 ]; then
     sed $CONFIG -i -e "s/^overscan_/#overscan_/"
     set_config_var disable_overscan 1 $CONFIG
     STATUS=disabled
@@ -541,7 +539,7 @@ do_change_timezone() {
 }
 
 get_wifi_country() {
-   grep country= /etc/wpa_supplicant/wpa_supplicant.conf | cut -d "=" -f 2
+  grep country= /etc/wpa_supplicant/wpa_supplicant.conf | cut -d "=" -f 2
 }
 
 do_wifi_country() {
@@ -556,16 +554,16 @@ do_wifi_country() {
   fi
   if [ $? -eq 0 ];then
     if [ -e /etc/wpa_supplicant/wpa_supplicant.conf ]; then
-        if grep -q "^country=" /etc/wpa_supplicant/wpa_supplicant.conf ; then
-            sed -i "s/^country=.*/country=$COUNTRY/g" /etc/wpa_supplicant/wpa_supplicant.conf
-        else
-            sed -i "1i country=$COUNTRY" /etc/wpa_supplicant/wpa_supplicant.conf
-        fi
+      if grep -q "^country=" /etc/wpa_supplicant/wpa_supplicant.conf ; then
+        sed -i "s/^country=.*/country=$COUNTRY/g" /etc/wpa_supplicant/wpa_supplicant.conf
+      else
+        sed -i "1i country=$COUNTRY" /etc/wpa_supplicant/wpa_supplicant.conf
+      fi
     else
-        echo "country=$COUNTRY" > /etc/wpa_supplicant/wpa_supplicant.conf
+      echo "country=$COUNTRY" > /etc/wpa_supplicant/wpa_supplicant.conf
     fi
     if [ "$INTERACTIVE" = True ]; then
-        whiptail --msgbox "Wi-fi country set to $COUNTRY" 20 60 1
+      whiptail --msgbox "Wi-fi country set to $COUNTRY" 20 60 1
     fi
     ASK_TO_REBOOT=1
   fi
@@ -587,18 +585,18 @@ iface wlan0 inet dhcp
 wpa-conf /etc/wpa_supplicant/wpa_supplicant.conf
 
 EOF
-
+    
   fi
-
+  
   if [ "$INTERACTIVE" = True ]; then
     whiptail --msgbox "\
 Please note: You will be asked to enter your WiFi SSID and Password. \
 All details will be saved in the wpa_supplicant.conf file, after which \
 the WiFi interface will be activated. You can always re-run this tool \
 to make changes to your WiFi configuration.\
-" 20 70 1
+    " 20 70 1
   fi
-
+  
   if [ "$INTERACTIVE" = True ]; then
     WLAN_SSID=$(whiptail --inputbox "Please enter the WiFi SSID" 20 60 3>&1 1>&2 2>&3)
     WLAN_PASS=$(whiptail --inputbox "Please enter the WiFi Password" 20 60 3>&1 1>&2 2>&3)
@@ -607,7 +605,7 @@ to make changes to your WiFi configuration.\
     WLAN_PASS=$2
     true
   fi
-
+  
   if [ $? -eq 0 ]; then
     whiptail --yesno "Save these settings?
 
@@ -633,12 +631,12 @@ get_hostname() {
 do_hostname() {
   if [ "$INTERACTIVE" = True ]; then
     whiptail --msgbox "\
-Please note: RFCs mandate that a hostname's labels \
-may contain only the ASCII letters 'a' through 'z' (case-insensitive),
-the digits '0' through '9', and the hyphen.
-Hostname labels cannot begin or end with a hyphen.
-No other symbols, punctuation characters, or blank spaces are permitted.\
-" 20 70 1
+    Please note: RFCs mandate that a hostname's labels \
+    may contain only the ASCII letters 'a' through 'z' (case-insensitive),
+    the digits '0' through '9', and the hyphen.
+    Hostname labels cannot begin or end with a hyphen.
+    No other symbols, punctuation characters, or blank spaces are permitted.\
+    " 20 70 1
   fi
   CURRENT_HOSTNAME=`cat /etc/hostname | tr -d " \t\n\r"`
   if [ "$INTERACTIVE" = True ]; then
@@ -661,12 +659,12 @@ do_overclock() {
   fi
   if [ "$INTERACTIVE" = True ]; then
     whiptail --msgbox "\
-Be aware that overclocking may reduce the lifetime of your
-Raspberry Pi. If overclocking at a certain level causes
-system instability, try a more modest overclock. Hold down
-shift during boot to temporarily disable overclock.
-See http://elinux.org/RPi_Overclocking for more information.\
-" 20 70 1
+    Be aware that overclocking may reduce the lifetime of your
+    Raspberry Pi. If overclocking at a certain level causes
+    system instability, try a more modest overclock. Hold down
+    shift during boot to temporarily disable overclock.
+    See http://elinux.org/RPi_Overclocking for more information.\
+    " 20 70 1
    if is_pione; then
     OVERCLOCK=$(whiptail --menu "Choose overclock preset" 20 60 10 \
       "None" "700MHz ARM, 250MHz core, 400MHz SDRAM, 0 overvolt" \
@@ -783,10 +781,10 @@ do_update() {
 do_selfupdatecheck() {
   SUM_LATEST=$(curl $UPDATE_BASE/versions 2>&1 | grep $SELF | awk '{print $2}')
   SUM_SELF=$(cat "$0" | md5sum | awk '{print $1}')
-  
+
   if [ -z "$SUM_LATEST" ]; then
   #No update information is available
-    echo 2  
+    echo 2
   elif [ "$SUM_LATEST" != "$SUM_SELF" ]; then
   #New version available!
     echo 1
@@ -807,8 +805,8 @@ do_selfupdate() {
       whiptail --msgbox "You already have the latest version." 20 60 1
     elif [ "$SELFUPDATE" -eq 1 ]
     then
-      whiptail --yesno "A new version is available!
-Would you like to upgrade now?" 20 60 2
+    whiptail --yesno "A new version is available!
+    Would you like to upgrade now?" 20 60 2
     if [ $? -eq 0 ]; then # yes
       _tempFileName="$0.tmp"
       if ! wget --quiet --output-document="$_tempFileName" "$UPDATE_BASE/$SELF" ; then
@@ -837,17 +835,17 @@ else
   echo "Failed!"
 fi
 EOF
-  
+      
       echo -n "Inserting update process..."
       exec /bin/sh updateScript.sh
-  
+      
     fi
-    elif [ "$SELFUPDATE" -eq 2 ]
-    then
-      whiptail --msgbox "No update information is available for '$SELF'.
-Please check the Project home page at https://github.com/midwan/amigapi" 20 60 2
+  elif [ "$SELFUPDATE" -eq 2 ]
+  then
+    whiptail --msgbox "No update information is available for '$SELF'.
+    Please check the Project home page at https://github.com/midwan/amigapi" 20 60 2
   fi
-  fi
+fi
 }
 
 do_audio() {
@@ -871,240 +869,249 @@ do_apply_os_config() {
   NOOBSFLAVOUR=$(get_json_string_val /boot/os_config.json flavour)
   NOOBSLANGUAGE=$(get_json_string_val /boot/os_config.json language)
   NOOBSKEYBOARD=$(get_json_string_val /boot/os_config.json keyboard)
-
+  
   if [ -n "$NOOBSFLAVOUR" ]; then
-    printf "Setting flavour to %s based on os_config.json from NOOBS. May take a while\n" "$NOOBSFLAVOUR"
-
-    printf "Unrecognised flavour. Ignoring\n"
+	printf "Setting flavour to %s based on os_config.json from NOOBS. May take a while\n" "$NOOBSFLAVOUR"
+	
+	printf "Unrecognised flavour. Ignoring\n"
   fi
-
+  
   # TODO: currently ignores en_gb settings as we assume we are running in a
   # first boot context, where UK English settings are default
   case "$NOOBSLANGUAGE" in
-    "en")
-      if [ "$NOOBSKEYBOARD" = "gb" ]; then
-        DEBLANGUAGE="" # UK english is the default, so ignore
-      else
-        DEBLANGUAGE="en_US.UTF-8"
-      fi
-      ;;
-    "de")
-      DEBLANGUAGE="de_DE.UTF-8"
-      ;;
-    "fi")
-      DEBLANGUAGE="fi_FI.UTF-8"
-      ;;
-    "fr")
-      DEBLANGUAGE="fr_FR.UTF-8"
-      ;;
-    "hu")
-      DEBLANGUAGE="hu_HU.UTF-8"
-      ;;
-    "ja")
-      DEBLANGUAGE="ja_JP.UTF-8"
-      ;;
-    "nl")
-      DEBLANGUAGE="nl_NL.UTF-8"
-      ;;
-    "pt")
-      DEBLANGUAGE="pt_PT.UTF-8"
-      ;;
-    "ru")
-      DEBLANGUAGE="ru_RU.UTF-8"
-      ;;
-    "zh_CN")
-      DEBLANGUAGE="zh_CN.UTF-8"
-      ;;
-    *)
-      printf "Language '%s' not handled currently. Run sudo raspi-config to set up" "$NOOBSLANGUAGE"
-      ;;
+	"en")
+	  if [ "$NOOBSKEYBOARD" = "gb" ]; then
+		DEBLANGUAGE="" # UK english is the default, so ignore
+	  else
+		DEBLANGUAGE="en_US.UTF-8"
+	  fi
+	;;
+	"de")
+	  DEBLANGUAGE="de_DE.UTF-8"
+	;;
+	"fi")
+	  DEBLANGUAGE="fi_FI.UTF-8"
+	;;
+	"fr")
+	  DEBLANGUAGE="fr_FR.UTF-8"
+	;;
+	"hu")
+	  DEBLANGUAGE="hu_HU.UTF-8"
+	;;
+	"ja")
+	  DEBLANGUAGE="ja_JP.UTF-8"
+	;;
+	"nl")
+	  DEBLANGUAGE="nl_NL.UTF-8"
+	;;
+	"pt")
+	  DEBLANGUAGE="pt_PT.UTF-8"
+	;;
+	"ru")
+	  DEBLANGUAGE="ru_RU.UTF-8"
+	;;
+	"zh_CN")
+	  DEBLANGUAGE="zh_CN.UTF-8"
+	;;
+	*)
+	  printf "Language '%s' not handled currently. Run sudo raspi-config to set up" "$NOOBSLANGUAGE"
+	;;
   esac
-
+  
   if [ -n "$DEBLANGUAGE" ]; then
-    printf "Setting language to %s based on os_config.json from NOOBS. May take a while\n" "$DEBLANGUAGE"
-    cat << EOF | debconf-set-selections
+	printf "Setting language to %s based on os_config.json from NOOBS. May take a while\n" "$DEBLANGUAGE"
+cat << EOF | debconf-set-selections
 locales   locales/locales_to_be_generated multiselect     $DEBLANGUAGE UTF-8
 EOF
-    rm /etc/locale.gen
-    dpkg-reconfigure -f noninteractive locales
-    update-locale LANG="$DEBLANGUAGE"
-    cat << EOF | debconf-set-selections
+	rm /etc/locale.gen
+	dpkg-reconfigure -f noninteractive locales
+	update-locale LANG="$DEBLANGUAGE"
+cat << EOF | debconf-set-selections
 locales   locales/default_environment_locale select       $DEBLANGUAGE
 EOF
   fi
-
+  
   if [ -n "$NOOBSKEYBOARD" -a "$NOOBSKEYBOARD" != "gb" ]; then
-    printf "Setting keyboard layout to %s based on os_config.json from NOOBS. May take a while\n" "$NOOBSKEYBOARD"
-    sed -i /etc/default/keyboard -e "s/^XKBLAYOUT.*/XKBLAYOUT=\"$NOOBSKEYBOARD\"/"
-    dpkg-reconfigure -f noninteractive keyboard-configuration
-    invoke-rc.d keyboard-setup start
+	printf "Setting keyboard layout to %s based on os_config.json from NOOBS. May take a while\n" "$NOOBSKEYBOARD"
+	sed -i /etc/default/keyboard -e "s/^XKBLAYOUT.*/XKBLAYOUT=\"$NOOBSKEYBOARD\"/"
+	dpkg-reconfigure -f noninteractive keyboard-configuration
+	invoke-rc.d keyboard-setup start
   fi
   return 0
 }
 
 nonint() {
-    $*
+  $*
 }
 
 do_installation_menu() {
-FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (AmigaPi)" --menu "Installation Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
-    "A1 Expand Filesystem" "Ensures that all of the SD card storage is available" \
-    "A2 Install AmigaPi" "Installs and configures system to auto-boot in UAE" \
-    3>&1 1>&2 2>&3)
+  FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (AmigaPi)" --menu "Installation Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
+	"A1 Expand Filesystem" "Ensures that all of the SD card storage is available" \
+	"A2 Quick Install AmigaPi" "Installs and configures system to auto-boot in UAE" \
+	"A3 Advanced Install AmigaPi" "Asks for confirmation for each step" \
+	3>&1 1>&2 2>&3)
   RET=$?
   if [ $RET -eq 1 ]; then
-    return 0
-  elif [ $RET -eq 0 ]; then
-    case "$FUN" in
-      A1\ *) do_expand_rootfs ;;
-      A2\ *) do_amigapi_setup ;;
-      *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
-    esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
+	return 0
+	elif [ $RET -eq 0 ]; then
+	case "$FUN" in
+	  A1\ *) do_expand_rootfs ;;
+	  A2\ *) do_amigapi_setup ;;
+	  A3\ *) do_advanced_amigapi_setup ;;
+	  *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
+	esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   fi
 }
-
+	
 do_internationalisation_menu() {
   FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool" --menu "Internationalisation Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
-    "I1 Change Locale" "Set up language and regional settings to match your location" \
-    "I2 Change Timezone" "Set up timezone to match your location" \
-    "I3 Change Keyboard Layout" "Set the keyboard layout to match your keyboard" \
-    "I4 Change Wi-fi Country" "Set the legal channels used in your country" \
-    3>&1 1>&2 2>&3)
+	"I1 Change Locale" "Set up language and regional settings to match your location" \
+	"I2 Change Timezone" "Set up timezone to match your location" \
+	"I3 Change Keyboard Layout" "Set the keyboard layout to match your keyboard" \
+	"I4 Change Wi-fi Country" "Set the legal channels used in your country" \
+	3>&1 1>&2 2>&3)
   RET=$?
   if [ $RET -eq 1 ]; then
-    return 0
-  elif [ $RET -eq 0 ]; then
-    case "$FUN" in
-      I1\ *) do_change_locale ;;
-      I2\ *) do_change_timezone ;;
-      I3\ *) do_configure_keyboard ;;
-      I4\ *) do_wifi_country ;;
-      *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
-    esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
+	return 0
+	elif [ $RET -eq 0 ]; then
+	case "$FUN" in
+	  I1\ *) do_change_locale ;;
+	  I2\ *) do_change_timezone ;;
+	  I3\ *) do_configure_keyboard ;;
+	  I4\ *) do_wifi_country ;;
+	  *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
+	esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   fi
 }
-
+		
 do_upgrade_menu() {
   FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (AmigaPi)" --menu "Upgrade Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
-    "A1 Upgrade All" "Upgrade the system and AmigaPi" \
-    "A2 Upgrade System only" "Upgrade the system only" \
-    "A3 Upgrade AmigaPi only" "Upgrade this tool only" \
-    3>&1 1>&2 2>&3)
+	"A1 Upgrade All" "Upgrade the system and AmigaPi" \
+	"A2 Upgrade System only" "Upgrade the system only" \
+	"A3 Upgrade AmigaPi only" "Upgrade this tool only" \
+	3>&1 1>&2 2>&3)
   RET=$?
   if [ $RET -eq 1 ]; then
-    return 0
-  elif [ $RET -eq 0 ]; then
-    case "$FUN" in
-      A1\ *) do_update ;;
-      A2\ *) do_sysupdate ;;
-      A3\ *) do_selfupdate ;;
-      *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
-    esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
+	return 0
+	elif [ $RET -eq 0 ]; then
+	case "$FUN" in
+	  A1\ *) do_update ;;
+	  A2\ *) do_sysupdate ;;
+	  A3\ *) do_selfupdate ;;
+	  *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
+	esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   fi
 }
-
+			
 do_configure_menu() {
   FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (AmigaPi)" --menu "Configure System" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
-    "A1 WiFi" "Enable WiFi, asking for your SSID and Password" \
-    "A2 Internationalisation" "Set up language and regional settings to match your location" \
-    "A3 Hostname" "Set the visible name for this Pi on a network" \
-    "A4 SSH" "Enable/Disable remote command line access to your Pi using SSH" \
-    "A5 Audio" "Force audio out through HDMI or 3.5mm jack" \
-    "A6 Video" "Configure HDMI video options" \
-    "A0 Overclock" "Configure overclocking for your Pi" \
-    3>&1 1>&2 2>&3)
+	"A1 WiFi" "Enable WiFi, asking for your SSID and Password" \
+	"A2 Internationalisation" "Set up language and regional settings to match your location" \
+	"A3 Hostname" "Set the visible name for this Pi on a network" \
+	"A4 SSH" "Enable/Disable remote command line access to your Pi using SSH" \
+	"A5 Audio" "Force audio out through HDMI or 3.5mm jack" \
+	"A6 Video" "Configure HDMI video options" \
+	"A0 Overclock" "Configure overclocking for your Pi" \
+	3>&1 1>&2 2>&3)
   RET=$?
   if [ $RET -eq 1 ]; then
-    return 0
-  elif [ $RET -eq 0 ]; then
-    case "$FUN" in
-      A1\ *) do_wifi_setup ;;
-      A2\ *) do_internationalisation_menu ;;
-      A3\ *) do_hostname ;;
-      A4\ *) do_ssh ;;
-      A5\ *) do_audio ;;
-      A6\ *) do_video_menu ;;
-      A0\ *) do_overclock ;;
-      *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
-    esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
+	return 0
+	elif [ $RET -eq 0 ]; then
+	case "$FUN" in
+	  A1\ *) do_wifi_setup ;;
+	  A2\ *) do_internationalisation_menu ;;
+	  A3\ *) do_hostname ;;
+	  A4\ *) do_ssh ;;
+	  A5\ *) do_audio ;;
+	  A6\ *) do_video_menu ;;
+	  A0\ *) do_overclock ;;
+	  *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
+	esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   fi
 }
-
+				
 do_video_menu() {
-FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (AmigaPi)" --menu "Video Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
-    "A1 Overscan" "You may need to configure overscan if black bars are present on display" \
-    "A2 HDMI Safe mode" "Enables maximum HDMI compatibility" \
-    "A3 HDMI Mode" "Set the HDMI output format" \
-    3>&1 1>&2 2>&3)
+  FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (AmigaPi)" --menu "Video Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
+	"A1 Overscan" "You may need to configure overscan if black bars are present on display" \
+	"A2 HDMI Safe mode" "Enables maximum HDMI compatibility" \
+	"A3 HDMI Mode" "Set the HDMI output format" \
+	3>&1 1>&2 2>&3)
   RET=$?
   if [ $RET -eq 1 ]; then
-    return 0
-  elif [ $RET -eq 0 ]; then
-    case "$FUN" in
-      A1\ *) do_overscan ;;
-      A2\ *) do_hdmi_safe ;;
-      A3\ *) do_hdmi_mode ;;
-      *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
-    esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
+	return 0
+	elif [ $RET -eq 0 ]; then
+	case "$FUN" in
+	  A1\ *) do_overscan ;;
+	  A2\ *) do_hdmi_safe ;;
+	  A3\ *) do_hdmi_mode ;;
+	  *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
+	esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   fi
 }
-
-do_amigapi_setup() {
-cat <<EOF > $CONFIG
-gpu_mem_256=128
-gpu_mem_512=256
-gpu_mem_1024=512
-dtparam=audio=on
-boot_delay=0
-EOF
-
+	
+	# Change options in /boot/config.txt file
+do_amigapi_boot_config() {
+	set_config_var gpu_mem_256 128 $CONFIG
+	set_config_var gpu_mem_512 256 $CONFIG
+	set_config_var gpu_mem_1024 512 $CONFIG
+	set_config_var dtparam "audio=on" $CONFIG
+	set_config_var boot_delay 0 $CONFIG
+}
+					
 # Tweak boot options in /boot/cmdline.txt, hide boot messages except critical errors
-cat <<EOF > $CMDLINE
+do_amigapi_cmdline() {
+	cat <<EOF > $CMDLINE
 dwc_otg.lpm_enable=0 console=ttyAMA0,115200 kgdboc=ttyAMA0,115200 console=tty3 root=/dev/mmcblk0p2 rootfstype=ext4 elevator=deadline fsck.repair=yes rootwait logo.nologo loglevel=3
 EOF
+}
 
 # Install extra packages (uae dependencies and some useful tools)
-apt-get -y update && apt-get -y install apt-utils apt-file \
-  usbutils mc alsa-base alsa-oss joystick \
-  libsdl-image1.2 libsdl-ttf2.0-0 libsdl-gfx1.2-5 \
-  libguichan-0.8.1-1 libguichan-allegro-0.8.1-1 libguichan-sdl-0.8.1-1 libguichan-opengl-0.8.1-1 \
-  libjpgalleg4.4 libxml2 \
-  fuse ntfs-3g usbmount
-
-# Disable debug messages on first console
-sed -e 's#^exit 0#/bin/dmesg -n 1\n\nexit 0#g' \
-  -i /etc/rc.local
+do_amigapi_install_packages() {
+    apt-get -y update && apt-get -y install apt-utils apt-file \
+      usbutils mc alsa-base alsa-oss joystick \
+      libsdl-image1.2 libsdl-ttf2.0-0 libsdl-gfx1.2-5 \
+      libguichan-0.8.1-1 libguichan-allegro-0.8.1-1 libguichan-sdl-0.8.1-1 libguichan-opengl-0.8.1-1 \
+      libjpgalleg4.4 libxml2 \
+      fuse ntfs-3g usbmount
+}
 
 # Optimize networking.service startup
-sed -i -e 's/auto/allow-hotplug/g' /etc/network/interfaces
+do_amigapi_optimize_network() {
+	sed -i -e 's/auto/allow-hotplug/g' /etc/network/interfaces
+}
 
 # Set boot method to Console
+do_amigapi_consoleboot() {
 if [ $SYSTEMD -eq 1 ]; then
-  systemctl set-default multi-user.target
-  ln -fs /lib/systemd/system/getty@.service /etc/systemd/system/getty.target.wants/getty@tty1.service
+	systemctl set-default multi-user.target
+	ln -fs /lib/systemd/system/getty@.service /etc/systemd/system/getty.target.wants/getty@tty1.service
 else
-  [ -e /etc/init.d/lightdm ] && update-rc.d lightdm disable 2
-  sed /etc/inittab -i -e "s/1:2345:respawn:\/bin\/login -f pi tty1 <\/dev\/tty1 >\/dev\/tty1 2>&1/1:2345:respawn:\/sbin\/getty --noclear 38400 tty1/"
+	[ -e /etc/init.d/lightdm ] && update-rc.d lightdm disable 2
+	sed /etc/inittab -i -e "s/1:2345:respawn:\/bin\/login -f pi tty1 <\/dev\/tty1 >\/dev\/tty1 2>&1/1:2345:respawn:\/sbin\/getty --noclear 38400 tty1/"
 fi
 
 if [ -e /etc/init.d/00-splashscreen ]; then
-  update-rc.d 00-splashscreen disable
+	update-rc.d 00-splashscreen disable
 fi
+}
 
 # Make mcedit the default editor
-update-alternatives --remove-all editor
-update-alternatives --install \
-  /usr/bin/editor editor /usr/bin/mcedit 10
+do_amigapi_default_editor() {
+  update-alternatives --remove-all editor
+  update-alternatives --install \
+    /usr/bin/editor editor /usr/bin/mcedit 10
+}
 
-# Download emulator binary package
-wget -q http://blitterstudio.com/wp-content/uploads/2016/08/uae4arm-rpi.zip -O ~/uae4arm-rpi.zip
+# Advanced install AmigaPi (ask for confirmation)
+do_advanced_amigapi_setup() {
+  ADVANCED=True
+  do_amigapi_setup
+}
 
-# Extract emulator package in /opt/
-unzip uae4arm-rpi.zip -d /opt/
-chmod -R a+rwx /opt/uae4arm-rpi
-
-# Autostart emulator
-cat <<EOF > /etc/systemd/system/uae4arm.service
+# Create service for uae4arm
+do_amigapi_createservice() {
+  if [ ! -f /etc/systemd/system/uae4arm.service ]; then
+    cat <<EOF > /etc/systemd/system/uae4arm.service
 [Unit]
 Description=UAE4Arm Amiga Emulator
 DefaultDependencies=no
@@ -1116,40 +1123,172 @@ ExecStart=/bin/bash -c "cd /opt/uae4arm-rpi/ && ./uae4arm-rpi2 -f conf/autostart
 WantedBy=local-fs.target
 
 EOF
+  else
+    # file exists already
+	whiptail --yesno "The service file already exists!
+	Do you want to overwrite it?" 20 60 1
+	if [ $? -eq 0 ]; then # yes
+	  cat <<EOF > /etc/systemd/system/uae4arm.service
+[Unit]
+Description=UAE4Arm Amiga Emulator
+DefaultDependencies=no
 
-systemctl enable uae4arm.service
+[Service]
+ExecStart=/bin/bash -c "cd /opt/uae4arm-rpi/ && ./uae4arm-rpi2 -f conf/autostart.uae"
 
-ASK_TO_REBOOT=1
+[Install]
+WantedBy=local-fs.target
 
-# Clean up
-rm uae4arm-rpi.zip
-apt-get clean
-apt-get -y autoremove
+EOF
+	fi
+  fi
+}
 
-whiptail --msgbox "\
+# Disable debug messages on first console
+do_amigapi_disabledebugconsole() {
+  sed -e 's#^exit 0#/bin/dmesg -n 1\n\nexit 0#g' \
+    -i /etc/rc.local
+}
+
+do_amigapi_enableservice() {
+  systemctl enable uae4arm.service
+  ASK_TO_REBOOT=1
+}
+
+do_amigapi_disableservice() {
+  systemctl enable uae4arm.service
+  ASK_TO_REBOOT=1
+}
+
+do_amigapi_downloaduae() {
+  wget -q http://blitterstudio.com/wp-content/uploads/2016/08/uae4arm-rpi.zip -O ~/uae4arm-rpi.zip
+}
+
+do_amigapi_extractuae() {
+  unzip uae4arm-rpi.zip -d /opt/
+  chmod -R a+rwx /opt/uae4arm-rpi
+}
+
+do_amigapi_cleanup() {
+  rm uae4arm-rpi.zip
+  apt-get clean
+  apt-get -y autoremove
+}
+
+# Quick install AmigaPi (defaults)
+do_amigapi_setup() {
+  if [ $ADVANCED ]; then
+	whiptail --yesno "Change /boot/config.txt with optimized values?
+	
+	This will assign half of the system memory to the GPU, enable audio and set the boot delay to 0 seconds (default is 1)." 20 60 2
+	if [ $? -eq 0 ]; then # yes
+		do_amigapi_boot_config
+	fi
+	
+	whiptail --yesno "Change /boot/cmdline.txt to hide all boot messages?
+	
+	This option will redirect all console output to tty3 and change the loglevel to 3." 20 60 2
+	if [ $? -eq 0 ]; then # yes
+		do_amigapi_cmdline
+	fi
+	
+	whiptail --yesno "Install additional packages?
+	
+	This will install the uae4arm dependencies along with a few additional packages \
+	to allow for USB device, NTFS support and the Midnight Commander file manager." 20 60 2
+	if [ $? -eq 0 ]; then # yes
+		do_amigapi_install_packages
+	fi
+	
+	whiptail --yesno "Optimize networking.service for faster startup?
+
+This will change 'auto' to 'allow-hotplug' for all network interfaces \
+in /etc/network/interfaces." 20 60 2
+	if [ $? -eq 0 ]; then # yes
+		do_amigapi_optimize_network
+	fi
+
+	whiptail --yesno "Change boot environment to Console?" 20 60 2
+	if [ $? -eq 0 ]; then # yes
+		do_amigapi_consoleboot
+	fi
+	
+	whiptail --yesno "Disable debug messages on the Console?" 20 60 2
+	if [ $? -eq 0 ]; then # yes
+		do_amigapi_disabledebugconsole
+	fi
+	
+	whiptail --yesno "Change the default Editor to mcedit?" 20 60 2
+	if [ $? -eq 0 ]; then # yes
+		do_amigapi_default_editor
+	fi
+
+	whiptail --yesno "Download the uae4arm binary?" 20 60 2
+	if [ $? -eq 0 ]; then # yes
+		do_amigapi_downloaduae
+	fi
+	
+	whiptail --yesno "Extract the downloaded uae4arm archive to /opt/uae4arm-rpi/ ?" 20 60 2
+	if [ $? -eq 0 ]; then # yes
+		do_amigapi_extractuae
+	fi
+	
+	whiptail --yesno "Create a service to run uae4arm on boot?" 20 60 2
+	if [ $? -eq 0 ]; then # yes
+		do_amigapi_createservice
+	fi
+	
+	whiptail --yesno "Enable uae4arm.service now?" 20 60 2
+	if [ $? -eq 0 ]; then # yes
+		do_amigapi_enableservice
+	fi
+	
+	whiptail --yesno "Cleanup unneded files?
+	
+	This will delete the uae4arm archive and run apt-get clean && apt-get autoremove." 20 60 2
+	if [ $? -eq 0 ]; then # yes
+		do_amigapi_cleanup
+	fi
+	
+  else
+	  do_amigapi_boot_config
+	  do_amigapi_cmdline
+	  do_amigapi_install_packages
+	  do_amigapi_optimize_network
+	  do_amigapi_consoleboot
+	  do_amigapi_disabledebugconsole
+	  do_amigapi_default_editor
+	  do_amigapi_downloaduae
+	  do_amigapi_extractuae
+	  do_amigapi_createservice
+	  do_amigapi_enableservice
+	  do_amigapi_cleanup
+  fi
+  whiptail --msgbox "\
 Done!
 Please reboot your system to start UAE.
 Remember that once you configure it, you can disable the GUI \
-on startup so that it boots directly into Workbench." 20 70 1
+					  on startup so that it boots directly into Workbench." 20 70 1
 }
-
+					
 do_open_mc() {
   if [ $(dpkg-query -W -f='${Status}\n' mc | grep -c "ok installed") -eq 0 ];
   then
-    echo "Required package 'mc' not found. Installing mc..."
-    apt-get -y update && apt-get -y install mc
+	echo "Required package 'mc' not found. Installing mc..."
+	apt-get -y update && apt-get -y install mc
   fi
-
+  
   mc
 }
 
 do_open_uae() {
   if [ -f /opt/uae4arm-rpi/uae4arm-rpi2 ]
   then
-    cd /opt/uae4arm-rpi/
-    ./uae4arm-rpi2 -f conf/autostart.uae
+	cd /opt/uae4arm-rpi/
+	./uae4arm-rpi2 -f conf/autostart.uae
   else
-    whiptail --msgbox "Could not find the emulator in the expected location. Please install AmigaPi first!" 20 60 1
+	whiptail --msgbox "Could not find the emulator in /opt/uae4arm-rpi/ 
+	Please install AmigaPi first!" 20 60 1
   fi
 }
 
@@ -1163,11 +1302,11 @@ do_shutdown() {
 
 do_finish() {
   if [ $ASK_TO_REBOOT -eq 1 ]; then
-    whiptail --yesno "Would you like to reboot now?" 20 60 2
-    if [ $? -eq 0 ]; then # yes
-      sync
-      reboot
-    fi
+	whiptail --yesno "Would you like to reboot now?" 20 60 2
+	if [ $? -eq 0 ]; then # yes
+	  sync
+	  reboot
+	fi
   fi
   exit 0
 }
@@ -1183,45 +1322,45 @@ fi
 if [ "$INTERACTIVE" = True ]; then
   if [ $(dpkg-query -W -f='${Status}\n' whiptail | grep -c "ok installed") -eq 0 ];
   then
-    echo "Required packages not found, installing them now..."
-    apt-get update && apt-get -y install whiptail lua5.2
+	echo "Required packages not found, installing them now..."
+	apt-get update && apt-get -y install whiptail lua5.2
   fi
-
+  
   if ! mountpoint -q /boot; then
-    whiptail --msgbox "The boot partition is not mounted - cannot configure. Note that amigapi is intended for use on Minibian only and cannot be guaranteed to work on other operating systems." 20 60 1
-    exit 1
+	whiptail --msgbox "The boot partition is not mounted - cannot configure. Note that amigapi is intended for use on Minibian only and cannot be guaranteed to work on other operating systems." 20 60 1
+	exit 1
   fi
   [ -e $CONFIG ] || touch $CONFIG
   get_init_sys
   calc_wt_size
   while true; do
-    FUN=$(whiptail --title "AmigaPi Software Configuration Tool" --menu "Setup Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Finish --ok-button Select \
-      "1 Installation" "Installation options" \
-      "2 Upgrade" "Upgrade options" \
-      "3 Configuration" "Configure various system options" \
-      "4 Start Amiga Emulator" "Start the installed uae4arm" \
-      "5 File Manager" "Open Midnight Commander to manage your files" \
-      "8 Reboot" "Reboot the system" \
-      "9 Shutdown" "Shutdown the system" \
-      "0 About AmigaPi" "Information about this configuration tool" \
-      3>&1 1>&2 2>&3)
-    RET=$?
-    if [ $RET -eq 1 ]; then
-      do_finish
-    elif [ $RET -eq 0 ]; then
-      case "$FUN" in
-        1\ *) do_installation_menu ;;
-        2\ *) do_upgrade_menu ;;
-        3\ *) do_configure_menu ;;
-        4\ *) do_run_uae ;;
-        5\ *) do_open_mc ;;
-        8\ *) do_reboot ;;
-        9\ *) do_shutdown ;;
-        0\ *) do_about ;;
-        *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
-      esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
-    else
-      exit 1
-    fi
+	FUN=$(whiptail --title "AmigaPi Software Configuration Tool" --menu "Setup Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Finish --ok-button Select \
+	  "1 Installation" "Installation options" \
+	  "2 Upgrade" "Upgrade options" \
+	  "3 Configuration" "Configure various system options" \
+	  "4 Start Amiga Emulator" "Start the installed uae4arm" \
+	  "5 File Manager" "Open Midnight Commander to manage your files" \
+	  "8 Reboot" "Reboot the system" \
+	  "9 Shutdown" "Shutdown the system" \
+	  "0 About AmigaPi" "Information about this configuration tool" \
+	  3>&1 1>&2 2>&3)
+	RET=$?
+	if [ $RET -eq 1 ]; then
+	  do_finish
+	  elif [ $RET -eq 0 ]; then
+	  case "$FUN" in
+		1\ *) do_installation_menu ;;
+		2\ *) do_upgrade_menu ;;
+		3\ *) do_configure_menu ;;
+		4\ *) do_run_uae ;;
+		5\ *) do_open_mc ;;
+		8\ *) do_reboot ;;
+		9\ *) do_shutdown ;;
+		0\ *) do_about ;;
+		*) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
+	  esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
+	else
+	  exit 1
+	fi
   done
 fi
