@@ -989,6 +989,7 @@ do_upgrade_menu() {
 	"A1 Upgrade All" "Upgrade the system and AmigaPi" \
 	"A2 Upgrade System only" "Upgrade the system only" \
 	"A3 Upgrade AmigaPi only" "Upgrade this tool only" \
+	"A4 Upgrade UAE4Arm only" "Upgrade or re-install UAE4Arm" \
 	3>&1 1>&2 2>&3)
   RET=$?
   if [ $RET -eq 1 ]; then
@@ -998,11 +999,29 @@ do_upgrade_menu() {
 	  A1\ *) do_update ;;
 	  A2\ *) do_sysupdate ;;
 	  A3\ *) do_selfupdate ;;
+	  A4\ *) do_upgradeuae_menu ;;
 	  *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
 	esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   fi
 }
-			
+
+do_upgradeuae_menu() {
+  FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (AmigaPi)" --menu "Upgrade UAE4Arm Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
+	"A1 Get latest binary" "Download latest pre-compiled binary" \
+	"A2 Compile from source" "Download and compile latest version from sources" \
+	3>&1 1>&2 2>&3)
+  RET=$?
+  if [ $RET -eq 1 ]; then
+	return 0
+	elif [ $RET -eq 0 ]; then
+	case "$FUN" in
+	  A1\ *) do_amigapi_downloaduae && do_amigapi_extractuae && whiptail --msgbox "The latest binary was downloaded and extracted in your system!" 20 60 1 ;;
+	  A2\ *) do_amigapi_compileuae ;;
+	  *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
+	esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
+  fi
+}
+
 do_configure_menu() {
   FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (AmigaPi)" --menu "Configure System" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
 	"A1 WiFi" "Enable WiFi, asking for your SSID and Password" \
@@ -1048,8 +1067,32 @@ do_video_menu() {
 	esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   fi
 }
-	
-	# Change options in /boot/config.txt file
+
+# Download and compile the latest sources of uae4arm-rpi
+do_amigapi_compileuae() {
+  cd ~
+  if [ -f "./uae4arm-rpi" ]; then
+	whiptail --yesno "The directory 'uae4arm-rpi' already exists in your home folder! Should I delete it?" 20 60 1
+	if [ $? -eq 0 ]; then # yes
+	  rm -R uae4arm-rpi
+	fi
+  fi
+  
+  echo "Cloning repository..."
+  git clone https://github.com/Chips-fr/uae4arm-rpi.git
+  cd uae4arm-rpi/
+  
+  echo "Installing dependencies for compiling..."
+  apt-get -y update && apt-get -y install g++-4.8 libsdl1.2-dev libguichan-dev libsdl-ttf2.0-dev libsdl-gfx1.2-dev libxml2-dev libflac-dev libmpg123-dev
+  
+  if is_pitwo; then
+    make && cp uae4arm /opt/uae4arm-rpi/uae4arm-rpi2
+  else
+    make PLATFORM=rpi1 && cp uae4arm /opt/uae4arm-rpi/uae4arm-rpi1
+  fi
+}
+
+# Change options in /boot/config.txt file
 do_amigapi_boot_config() {
 	set_config_var gpu_mem_256 128 $CONFIG
 	set_config_var gpu_mem_512 256 $CONFIG
@@ -1057,7 +1100,7 @@ do_amigapi_boot_config() {
 	set_config_var dtparam "audio=on" $CONFIG
 	set_config_var boot_delay 0 $CONFIG
 }
-					
+
 # Tweak boot options in /boot/cmdline.txt, hide boot messages except critical errors
 do_amigapi_cmdline() {
 	cat <<EOF > $CMDLINE
