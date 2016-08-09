@@ -1220,7 +1220,7 @@ do_amigapi_cleanup() {
 
 # Quick install AmigaPi (defaults)
 do_amigapi_setup() {
-  if [ $ADVANCED ]; then
+  if [ $ADVANCED && "$INTERACTIVE" = True ]; then
 	whiptail --yesno "Change /boot/config.txt with optimized values?
 	
 	This will assign half of the system memory to the GPU, enable audio and set the boot delay to 0 seconds (default is 1)." 20 60 2
@@ -1354,6 +1354,37 @@ do_finish() {
   exit 0
 }
 
+#
+# Command line options for non-interactive use
+#
+for i in $*
+do
+  case $i in
+  --expand-rootfs)
+    INTERACTIVE=False
+    do_expand_rootfs
+    printf "Please reboot\n"
+    exit 0
+    ;;
+  --apply-os-config)
+    INTERACTIVE=False
+    do_apply_os_config
+    exit $?
+    ;;
+  --install-amigapi)
+    INTERACTIVE=False
+	get_init_sys
+	do_amigapi_setup
+  nonint)
+    INTERACTIVE=False
+    $@
+    ;;
+  *)
+    # unknown option
+    ;;
+  esac
+done
+
 if [ $(id -u) -ne 0 ]; then
   printf "Script must be run as root. Try 'sudo sh ./amigapi'\n"
   exit 1
@@ -1362,13 +1393,12 @@ fi
 #
 # Interactive use loop
 #
-if [ "$INTERACTIVE" = True ]; then
-  if [ $(dpkg-query -W -f='${Status}\n' whiptail | grep -c "ok installed") -eq 0 ];
-  then
+if [ $(dpkg-query -W -f='${Status}\n' whiptail | grep -c "ok installed") -eq 0 ]; then
 	echo "Required packages not found, installing them now..."
 	apt-get update && apt-get -y install whiptail lua5.2
-  fi
-  
+fi
+
+if [ "$INTERACTIVE" = True ]; then
   if ! mountpoint -q /boot; then
 	whiptail --msgbox "The boot partition is not mounted - cannot configure. Note that amigapi is intended for use on Minibian only and cannot be guaranteed to work on other operating systems." 20 60 1
 	exit 1
