@@ -810,8 +810,7 @@ do_selfupdate() {
     if [ $? -eq 0 ]; then # yes
       _tempFileName="$0.tmp"
       if ! wget --quiet --output-document="$_tempFileName" "$UPDATE_BASE/$SELF" ; then
-        whiptail --msgbox "Failed: Error while trying to wget new version!
-        File requested: $UPDATE_BASE/$SELF" 20 60 2
+        whiptail --msgbox "Failed: Error while trying to wget new version!\nFile requested: $UPDATE_BASE/$SELF" 20 60 2
         exit 1
       fi
       
@@ -842,8 +841,7 @@ EOF
     fi
   elif [ "$SELFUPDATE" -eq 2 ]
   then
-    whiptail --msgbox "No update information is available for '$SELF'.
-    Please check the Project home page at https://github.com/midwan/amigapi" 20 60 2
+    whiptail --msgbox "No update information is available for '$SELF'.\nPlease check the Project home page at https://github.com/midwan/amigapi" 20 60 2
   fi
 fi
 }
@@ -990,6 +988,7 @@ do_upgrade_menu() {
 	"A2 Upgrade System only" "Upgrade the system only" \
 	"A3 Upgrade AmigaPi only" "Upgrade this tool only" \
 	"A4 Upgrade UAE4Arm only" "Upgrade or re-install UAE4Arm" \
+	"A5 Upgrade RPi firmware" "Run rpi-update to get the latest firmware" \
 	3>&1 1>&2 2>&3)
   RET=$?
   if [ $RET -eq 1 ]; then
@@ -1000,6 +999,7 @@ do_upgrade_menu() {
 	  A2\ *) do_sysupdate ;;
 	  A3\ *) do_selfupdate ;;
 	  A4\ *) do_upgradeuae_menu ;;
+	  A5\ *) do_rpi_update ;;
 	  *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
 	esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   fi
@@ -1016,7 +1016,11 @@ do_upgradeuae_menu() {
 	elif [ $RET -eq 0 ]; then
 	case "$FUN" in
 	  A1\ *) do_amigapi_downloaduae && do_amigapi_extractuae && whiptail --msgbox "The latest binary was downloaded and extracted in your system!" 20 60 1 ;;
-	  A2\ *) do_amigapi_compileuae ;;
+	  A2\ *) whiptail --yesno "Warning: This operation will take several minutes to complete and the stability of the version cannot be guaranteed. Are you sure you want to continue?" 20 60 2
+			if [ $? -eq 0 ]; then
+			  do_amigapi_compileuae
+			fi
+			;;
 	  *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
 	esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   fi
@@ -1068,6 +1072,14 @@ do_video_menu() {
   fi
 }
 
+do_rpi_update() {
+  apt-get update && apt-get -y install rpi-update
+  rpi-update
+  whiptail --msgbox "Done, you should reboot your system now" 20 60 1-1
+  ASK_TO_REBOOT=1
+  return 0
+}
+
 # Download and compile the latest sources of uae4arm-rpi
 do_amigapi_compileuae() {
   cd ~
@@ -1078,18 +1090,20 @@ do_amigapi_compileuae() {
 	fi
   fi
   
+  echo "Installing dependencies for compiling..."
+  apt-get -y update && apt-get -y install rpi-update git build-essential libsdl1.2-dev libguichan-dev libsdl-ttf2.0-dev libsdl-gfx1.2-dev libxml2-dev libflac-dev libmpg123-dev
+  
   echo "Cloning repository..."
   git clone https://github.com/Chips-fr/uae4arm-rpi.git
   cd uae4arm-rpi/
-  
-  echo "Installing dependencies for compiling..."
-  apt-get -y update && apt-get -y install g++-4.8 libsdl1.2-dev libguichan-dev libsdl-ttf2.0-dev libsdl-gfx1.2-dev libxml2-dev libflac-dev libmpg123-dev
   
   if is_pitwo; then
     make && cp uae4arm /opt/uae4arm-rpi/uae4arm-rpi2
   else
     make PLATFORM=rpi1 && cp uae4arm /opt/uae4arm-rpi/uae4arm-rpi1
   fi
+  
+  return 0
 }
 
 # Change options in /boot/config.txt file
@@ -1221,31 +1235,23 @@ do_amigapi_cleanup() {
 # Quick install AmigaPi (defaults)
 do_amigapi_setup() {
   if [ $ADVANCED && "$INTERACTIVE" = True ]; then
-	whiptail --yesno "Change /boot/config.txt with optimized values?
-	
-	This will assign half of the system memory to the GPU, enable audio and set the boot delay to 0 seconds (default is 1)." 20 60 2
+	whiptail --yesno "Change /boot/config.txt with optimized values?\n\nThis will assign half of the system memory to the GPU, enable audio and set the boot delay to 0 seconds (default is 1)." 20 60 2
 	if [ $? -eq 0 ]; then # yes
 		do_amigapi_boot_config
 	fi
 	
-	whiptail --yesno "Change /boot/cmdline.txt to hide all boot messages?
-	
-	This option will redirect all console output to tty3 and change the loglevel to 3." 20 60 2
+	whiptail --yesno "Change /boot/cmdline.txt to hide all boot messages?\n\nThis option will redirect all console output to tty3 and change the loglevel to 3." 20 60 2
 	if [ $? -eq 0 ]; then # yes
 		do_amigapi_cmdline
 	fi
 	
-	whiptail --yesno "Install additional packages?
-	
-	This will install the uae4arm dependencies along with a few additional packages \
+	whiptail --yesno "Install additional packages?\n\nThis will install the uae4arm dependencies along with a few additional packages \
 	to allow for USB device, NTFS support and the Midnight Commander file manager." 20 60 2
 	if [ $? -eq 0 ]; then # yes
 		do_amigapi_install_packages
 	fi
 	
-	whiptail --yesno "Optimize networking.service for faster startup?
-
-This will change 'auto' to 'allow-hotplug' for all network interfaces \
+	whiptail --yesno "Optimize networking.service for faster startup?\n\nThis will change 'auto' to 'allow-hotplug' for all network interfaces \
 in /etc/network/interfaces." 20 60 2
 	if [ $? -eq 0 ]; then # yes
 		do_amigapi_optimize_network
@@ -1286,9 +1292,7 @@ in /etc/network/interfaces." 20 60 2
 		do_amigapi_enableservice
 	fi
 	
-	whiptail --yesno "Cleanup unneded files?
-	
-	This will delete the uae4arm archive and run apt-get clean && apt-get autoremove." 20 60 2
+	whiptail --yesno "Cleanup unneded files?\n\nThis will delete the uae4arm archive and run apt-get clean && apt-get autoremove." 20 60 2
 	if [ $? -eq 0 ]; then # yes
 		do_amigapi_cleanup
 	fi
@@ -1310,8 +1314,9 @@ in /etc/network/interfaces." 20 60 2
   whiptail --msgbox "\
 Done!
 Please reboot your system to start UAE.
-Remember that once you configure it, you can disable the GUI \
-					  on startup so that it boots directly into Workbench." 20 70 1
+Remember that once you configure it, you can disable the GUI on startup so that it boots directly into Workbench." 20 70 1
+ASK_TO_REBOOT=1
+return 0
 }
 					
 do_open_mc() {
@@ -1330,8 +1335,7 @@ do_open_uae() {
 	cd /opt/uae4arm-rpi/
 	./uae4arm-rpi2 -f conf/autostart.uae
   else
-	whiptail --msgbox "Could not find the emulator in /opt/uae4arm-rpi/ 
-	Please install AmigaPi first!" 20 60 1
+	whiptail --msgbox "Could not find the emulator in /opt/uae4arm-rpi/ \nPlease install AmigaPi first!" 20 60 1
   fi
 }
 
@@ -1375,6 +1379,8 @@ do
     INTERACTIVE=False
 	get_init_sys
 	do_amigapi_setup
+	exit 0
+	;;
   nonint)
     INTERACTIVE=False
     $@
