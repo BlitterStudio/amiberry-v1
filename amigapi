@@ -10,6 +10,7 @@ CONFIG=/boot/config.txt
 CMDLINE=/boot/cmdline.txt
 SELF=$(basename "$0")
 UPDATE_BASE=https://raw.githubusercontent.com/midwan/amigapi/master
+UAE_BINARY=http://blitterstudio.com/wp-content/uploads/2016/08/uae4arm-rpi.zip
 
 is_pione() {
   if grep -q "^Revision\s*:\s*00[0-9a-fA-F][0-9a-fA-F]$" /proc/cpuinfo; then
@@ -23,6 +24,11 @@ is_pione() {
 
 is_pitwo() {
   grep -q "^Revision\s*:\s*[ 123][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]04[0-9a-fA-F]$" /proc/cpuinfo
+  return $?
+}
+
+is_pithree() {
+  grep -q "^Revision\s*:\s*[ 123][0-9a-fA-F][0-9a-fA-F][0-9a-fA-F]08[0-9a-fA-F]$" /proc/cpuinfo
   return $?
 }
 
@@ -1167,6 +1173,16 @@ do_advanced_amigapi_setup() {
 
 # Create service for uae4arm
 do_amigapi_createservice() {
+  if is_pione ; then
+    UAE_FILENAME = "uae4arm-rpi1"
+  elif is_pitwo ; then
+    UAE_FILENAME = "uae4arm-rpi2"
+  elif is_pithree ; then
+    UAE_FILENAME = "uae4arm-rpi3"
+  else
+    UAE_FILENAME = "uae4arm-rpi2"
+  fi
+  
   if [ ! -f /etc/systemd/system/uae4arm.service ]; then
     cat <<EOF > /etc/systemd/system/uae4arm.service
 [Unit]
@@ -1174,7 +1190,7 @@ Description=UAE4Arm Amiga Emulator
 DefaultDependencies=no
 
 [Service]
-ExecStart=/bin/bash -c "cd /opt/uae4arm-rpi/ && ./uae4arm-rpi2 -f conf/autostart.uae"
+ExecStart=/bin/bash -c "cd /opt/uae4arm-rpi/ && ./$UAE_FILENAME -f conf/autostart.uae"
 
 [Install]
 WantedBy=local-fs.target
@@ -1191,7 +1207,7 @@ Description=UAE4Arm Amiga Emulator
 DefaultDependencies=no
 
 [Service]
-ExecStart=/bin/bash -c "cd /opt/uae4arm-rpi/ && ./uae4arm-rpi2 -f conf/autostart.uae"
+ExecStart=/bin/bash -c "cd /opt/uae4arm-rpi/ && ./$UAE_FILENAME -f conf/autostart.uae"
 
 [Install]
 WantedBy=local-fs.target
@@ -1218,7 +1234,7 @@ do_amigapi_disableservice() {
 }
 
 do_amigapi_downloaduae() {
-  wget -q http://blitterstudio.com/wp-content/uploads/2016/08/uae4arm-rpi.zip -O ~/uae4arm-rpi.zip
+  wget -q "$UAE_BINARY" -O ~/uae4arm-rpi.zip
 }
 
 do_amigapi_extractuae() {
