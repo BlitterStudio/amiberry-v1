@@ -10,7 +10,7 @@ CONFIG=/boot/config.txt
 CMDLINE=/boot/cmdline.txt
 SELF=$(basename "$0")
 UPDATE_BASE=https://raw.githubusercontent.com/midwan/amigapi/master
-UAE_BINARY=http://blitterstudio.com/wp-content/uploads/2016/08/uae4arm-rpi.zip
+UAE_BINARY=http://blitterstudio.com/files/uae4arm-rpi.zip
 
 is_pione() {
   if grep -q "^Revision\s*:\s*00[0-9a-fA-F][0-9a-fA-F]$" /proc/cpuinfo; then
