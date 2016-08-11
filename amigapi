@@ -779,9 +779,13 @@ do_ssh() {
 }
 
 do_update() {
-  apt-get -y update && apt-get -y upgrade &&
+  apt-get -y update && apt-get -y dist-upgrade &&
   do_selfupdate &&
   sh ./amigapi
+}
+
+do_sysupdate() {
+  apt-get -y update && apt-get -y dist-upgrade
 }
 
 do_selfupdatecheck() {
