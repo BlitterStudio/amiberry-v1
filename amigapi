@@ -4,8 +4,7 @@
 # See LICENSE file for copyright and license details
 
 INTERACTIVE=True
-ADVANCED=False
-ASK_TO_REBOOT=0
+ASK_TO_REBOOT = 0
 CONFIG=/boot/config.txt
 CMDLINE=/boot/cmdline.txt
 SELF=$(basename "$0")
@@ -1044,6 +1043,7 @@ do_configure_menu() {
 	"A4 SSH" "Enable/Disable remote command line access to your Pi using SSH" \
 	"A5 Audio" "Force audio out through HDMI or 3.5mm jack" \
 	"A6 Video" "Configure HDMI video options" \
+	"A7 UAE Service" "Enables or Disables auto-start of UAE in boot" \
 	"A0 Overclock" "Configure overclocking for your Pi" \
 	3>&1 1>&2 2>&3)
   RET=$?
@@ -1057,6 +1057,7 @@ do_configure_menu() {
 	  A4\ *) do_ssh ;;
 	  A5\ *) do_audio ;;
 	  A6\ *) do_video_menu ;;
+	  A7\ *) do_amigapi_uaeservice ;;
 	  A0\ *) do_overclock ;;
 	  *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
 	esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
@@ -1171,20 +1172,104 @@ do_amigapi_default_editor() {
 
 # Advanced install AmigaPi (ask for confirmation)
 do_advanced_amigapi_setup() {
-  ADVANCED=True
-  do_amigapi_setup
+  whiptail --yesno "Change /boot/config.txt with optimized values?\n\nThis will assign half of the system memory to the GPU, enable audio and set the boot delay to 0 seconds (default is 1)." 20 60 2
+	if [ $? -eq 0 ]; then # yes
+		do_amigapi_boot_config
+	fi
+	
+	whiptail --yesno "Change /boot/cmdline.txt to hide all boot messages?\n\nThis option will redirect all console output to tty3 and change the loglevel to 3." 20 60 2
+	if [ $? -eq 0 ]; then # yes
+		do_amigapi_cmdline
+	fi
+	
+	whiptail --yesno "Install additional packages?\n\nThis will install the uae4arm dependencies along with a few additional packages \
+to allow for USB device, NTFS support and the Midnight Commander file manager." 20 60 2
+	if [ $? -eq 0 ]; then # yes
+		do_amigapi_install_packages
+	fi
+	
+	whiptail --yesno "Optimize networking.service for faster startup?\n\nThis will change 'auto' to 'allow-hotplug' for all network interfaces \
+in /etc/network/interfaces." 20 60 2
+	if [ $? -eq 0 ]; then # yes
+		do_amigapi_optimize_network
+	fi
+
+	whiptail --yesno "Change boot environment to Console?" 20 60 2
+	if [ $? -eq 0 ]; then # yes
+		do_amigapi_consoleboot
+	fi
+	
+	whiptail --yesno "Disable debug messages on the Console?" 20 60 2
+	if [ $? -eq 0 ]; then # yes
+		do_amigapi_disabledebugconsole
+	fi
+	
+	whiptail --yesno "Change the default Editor to mcedit?" 20 60 2
+	if [ $? -eq 0 ]; then # yes
+		do_amigapi_default_editor
+	fi
+
+	whiptail --yesno "Download the latest uae4arm binary?" 20 60 2
+	if [ $? -eq 0 ]; then # yes
+		do_amigapi_downloaduae
+	fi
+	
+	whiptail --yesno "Extract the downloaded uae4arm archive to /opt/uae4arm-rpi/ ?" 20 60 2
+	if [ $? -eq 0 ]; then # yes
+		do_amigapi_extractuae
+	fi
+	
+	whiptail --yesno "Create a service to run uae4arm on boot?" 20 60 2
+	if [ $? -eq 0 ]; then # yes
+		do_amigapi_createservice
+	fi
+	
+	whiptail --yesno "Enable uae4arm.service now?" 20 60 2
+	if [ $? -eq 0 ]; then # yes
+		do_amigapi_enableservice
+	fi
+	
+	whiptail --yesno "Cleanup unneeded files?\n\nThis will delete the uae4arm archive and run apt-get clean && apt-get autoremove." 20 60 2
+	if [ $? -eq 0 ]; then # yes
+		do_amigapi_cleanup
+	fi
+}
+
+is_service_enabled() {
+  systemctl status uae4arm | grep enabled
+  return $?
+}
+
+do_amigapi_uaeservice() {
+  if [ -f /etc/systemd/system/uae4arm.service ]; then
+    if is_service_enabled; then
+	  whiptail --yesno "The UAE4Arm service is currently enabled. Would you like to Disable it?" 20 60 1
+	  if [ $? -eq 0 ]; then #yes
+	    do_amigapi_disableservice
+	  fi
+	else
+	  whiptail --yesno "The UAE4Arm service is currently disabled. Would you like to Enable it?" 20 60 1
+	  if [ $? -eq 0 ]; then #yes
+	    do_amigapi_enableservice
+	  fi
+	fi
+  else
+    whiptail --msgbox "The UAE4Arm Service is not installed in your system.\n\nYou can use the Installation menu to install it." 20 60 1
+  fi
 }
 
 # Create service for uae4arm
 do_amigapi_createservice() {
+  UAE_FILENAME=""
+  
   if is_pione ; then
-    UAE_FILENAME = "uae4arm-rpi1"
+    UAE_FILENAME="uae4arm-rpi1"
   elif is_pitwo ; then
-    UAE_FILENAME = "uae4arm-rpi2"
+    UAE_FILENAME="uae4arm-rpi2"
   elif is_pithree ; then
-    UAE_FILENAME = "uae4arm-rpi3"
+    UAE_FILENAME="uae4arm-rpi3"
   else
-    UAE_FILENAME = "uae4arm-rpi2"
+    UAE_FILENAME="uae4arm-rpi2"
   fi
   
   if [ ! -f /etc/systemd/system/uae4arm.service ]; then
@@ -1202,8 +1287,8 @@ WantedBy=local-fs.target
 EOF
   else
     # file exists already
-	whiptail --yesno "The service file already exists!
-	Do you want to overwrite it?" 20 60 1
+	whiptail --yesno "The service file already exists!\n
+Do you want to overwrite it?" 20 60 1
 	if [ $? -eq 0 ]; then # yes
 	  cat <<EOF > /etc/systemd/system/uae4arm.service
 [Unit]
@@ -1233,7 +1318,7 @@ do_amigapi_enableservice() {
 }
 
 do_amigapi_disableservice() {
-  systemctl enable uae4arm.service
+  systemctl disable uae4arm.service
   ASK_TO_REBOOT=1
 }
 
@@ -1254,83 +1339,19 @@ do_amigapi_cleanup() {
 
 # Quick install AmigaPi (defaults)
 do_amigapi_setup() {
-  if [ $ADVANCED && "$INTERACTIVE" = True ]; then
-	whiptail --yesno "Change /boot/config.txt with optimized values?\n\nThis will assign half of the system memory to the GPU, enable audio and set the boot delay to 0 seconds (default is 1)." 20 60 2
-	if [ $? -eq 0 ]; then # yes
-		do_amigapi_boot_config
-	fi
-	
-	whiptail --yesno "Change /boot/cmdline.txt to hide all boot messages?\n\nThis option will redirect all console output to tty3 and change the loglevel to 3." 20 60 2
-	if [ $? -eq 0 ]; then # yes
-		do_amigapi_cmdline
-	fi
-	
-	whiptail --yesno "Install additional packages?\n\nThis will install the uae4arm dependencies along with a few additional packages \
-	to allow for USB device, NTFS support and the Midnight Commander file manager." 20 60 2
-	if [ $? -eq 0 ]; then # yes
-		do_amigapi_install_packages
-	fi
-	
-	whiptail --yesno "Optimize networking.service for faster startup?\n\nThis will change 'auto' to 'allow-hotplug' for all network interfaces \
-in /etc/network/interfaces." 20 60 2
-	if [ $? -eq 0 ]; then # yes
-		do_amigapi_optimize_network
-	fi
+  do_amigapi_boot_config
+  do_amigapi_cmdline
+  do_amigapi_install_packages
+  do_amigapi_optimize_network
+  do_amigapi_consoleboot
+  do_amigapi_disabledebugconsole
+  do_amigapi_default_editor
+  do_amigapi_downloaduae
+  do_amigapi_extractuae
+  do_amigapi_createservice
+  do_amigapi_enableservice
+  do_amigapi_cleanup
 
-	whiptail --yesno "Change boot environment to Console?" 20 60 2
-	if [ $? -eq 0 ]; then # yes
-		do_amigapi_consoleboot
-	fi
-	
-	whiptail --yesno "Disable debug messages on the Console?" 20 60 2
-	if [ $? -eq 0 ]; then # yes
-		do_amigapi_disabledebugconsole
-	fi
-	
-	whiptail --yesno "Change the default Editor to mcedit?" 20 60 2
-	if [ $? -eq 0 ]; then # yes
-		do_amigapi_default_editor
-	fi
-
-	whiptail --yesno "Download the uae4arm binary?" 20 60 2
-	if [ $? -eq 0 ]; then # yes
-		do_amigapi_downloaduae
-	fi
-	
-	whiptail --yesno "Extract the downloaded uae4arm archive to /opt/uae4arm-rpi/ ?" 20 60 2
-	if [ $? -eq 0 ]; then # yes
-		do_amigapi_extractuae
-	fi
-	
-	whiptail --yesno "Create a service to run uae4arm on boot?" 20 60 2
-	if [ $? -eq 0 ]; then # yes
-		do_amigapi_createservice
-	fi
-	
-	whiptail --yesno "Enable uae4arm.service now?" 20 60 2
-	if [ $? -eq 0 ]; then # yes
-		do_amigapi_enableservice
-	fi
-	
-	whiptail --yesno "Cleanup unneded files?\n\nThis will delete the uae4arm archive and run apt-get clean && apt-get autoremove." 20 60 2
-	if [ $? -eq 0 ]; then # yes
-		do_amigapi_cleanup
-	fi
-	
-  else
-	  do_amigapi_boot_config
-	  do_amigapi_cmdline
-	  do_amigapi_install_packages
-	  do_amigapi_optimize_network
-	  do_amigapi_consoleboot
-	  do_amigapi_disabledebugconsole
-	  do_amigapi_default_editor
-	  do_amigapi_downloaduae
-	  do_amigapi_extractuae
-	  do_amigapi_createservice
-	  do_amigapi_enableservice
-	  do_amigapi_cleanup
-  fi
   whiptail --msgbox "\
 Done!
 Please reboot your system to start UAE.
