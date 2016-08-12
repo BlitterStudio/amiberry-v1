@@ -25,8 +25,8 @@ You can re-run the tool to perform any of the tasks it handles, including upgrad
 
 Problems?
 ---------
-If you're having problems with UAE, please refer to the uae4arm-rpi project page by Chips-fr (https://github.com/Chips-fr/uae4arm-rpi)
-If you find a bug in the amigapi tool, please let me know by opening an Issue on the Github page.
+- If you're having problems with UAE, please refer to the uae4arm-rpi project page by Chips-fr (https://github.com/Chips-fr/uae4arm-rpi).
+- If you find a bug in the amigapi tool, please let me know by opening an Issue on the Github page.
 
 Troubleshooting WiFi
 --------------------
