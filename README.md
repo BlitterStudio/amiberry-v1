@@ -18,7 +18,15 @@ What next?
 ----------
 The tool will present you with a menu containing all available options.
 You should start with expanding the filesystem, Upgrading the system and finally install AmigaPi.
-The rest of the options are there for making things easier for novice users.
+Once you install AmigaPi, the system will be configured to boot straight into UAE.
+You can configure your setup and once you're happy, untick the option "Show GUI on startup" in UAE's Miscellaneous page, to boot straight into Workbench from that moment on.
+You can always quit UAE to go back to your normal (Linux) login screen.
+You can re-run the tool to perform any of the tasks it handles, including upgrading your system, upgrading UAE, enabling/disabling system options as well as the UAE service, etc.
+
+Problems?
+---------
+If you're having problems with UAE, please refer to the uae4arm-rpi project page by Chips-fr (https://github.com/Chips-fr/uae4arm-rpi)
+If you find a bug in the amigapi tool, please let me know by opening an Issue on the Github page.
 
 Troubleshooting WiFi
 --------------------
