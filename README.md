@@ -1,4 +1,4 @@
-# amigapi
+# AmiBerry
 A script to configure a stock [Minibian](https://minibianpi.wordpress.com/) system as a dedicated Amiga emulation machine.
 
 Requirements
