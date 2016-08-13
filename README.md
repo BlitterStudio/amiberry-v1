@@ -6,7 +6,13 @@ Requirements
 - A Raspberry Pi 3 (recommended) or 2.
 - A stock [Minibian](https://minibianpi.wordpress.com/) installation.
 
-Usage
+Usage (for the lazy)
+--------------------
+- Download the latest image for your Pi model, from the [Releases](https://github.com/midwan/amiberry/releases/latest) section.
+- Flash it to an sdcard.
+- Boot your Raspberry Pi from the sdcard.
+
+Usage (for the not so lazy)
 -----
 
 ~~~ bash
@@ -27,11 +33,11 @@ You can re-run the tool to perform any of the tasks it handles, including upgrad
 
 Known issues
 ------------
-- You can freely upgrade the system, but if you upgrade the firmware as well (rpi-update) then uae4arm will break. This problem has been reported to the author of uae4arm (here: https://github.com/Chips-fr/uae4arm-rpi/issues/22), until it's fixed with a new version, please don't upgrade the firmware.
+- You can freely upgrade the system, but if you upgrade the firmware as well (rpi-update) then uae4arm will break. This problem has been reported to the author of uae4arm [here](https://github.com/Chips-fr/uae4arm-rpi/issues/22), until it's fixed with a new version, please don't upgrade the firmware.
 
 Problems?
 ---------
-- If you're having problems with UAE, please refer to the uae4arm-rpi project page by Chips-fr (https://github.com/Chips-fr/uae4arm-rpi).
+- If you're having problems with UAE, please refer to the uae4arm-rpi [project page by Chips-fr] (https://github.com/Chips-fr/uae4arm-rpi).
 - If you find a bug in the amigapi tool, please let me know by opening an Issue on the Github page.
 
 Troubleshooting WiFi
