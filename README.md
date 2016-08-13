@@ -25,6 +25,10 @@ You can always quit UAE to go back to your normal (Linux) login screen.
 
 You can re-run the tool to perform any of the tasks it handles, including upgrading your system, upgrading UAE, enabling/disabling system options as well as the UAE service, etc.
 
+Known issues
+------------
+- You can freely upgrade the system, but if you upgrade the firmware as well (rpi-update) then uae4arm will break. This problem has been reported to the author of uae4arm (here: https://github.com/Chips-fr/uae4arm-rpi/issues/22), until it's fixed with a new version, please don't upgrade the firmware.
+
 Problems?
 ---------
 - If you're having problems with UAE, please refer to the uae4arm-rpi project page by Chips-fr (https://github.com/Chips-fr/uae4arm-rpi).
