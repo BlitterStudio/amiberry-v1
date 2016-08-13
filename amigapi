@@ -1,5 +1,5 @@
 #!/bin/sh
-# Part of amigapi https://github.com/midwan/amigapi
+# Part of amiberry https://github.com/midwan/amiberry
 #
 # See LICENSE file for copyright and license details
 
@@ -8,7 +8,7 @@ ASK_TO_REBOOT=0
 CONFIG=/boot/config.txt
 CMDLINE=/boot/cmdline.txt
 SELF=$(basename "$0")
-UPDATE_BASE=https://raw.githubusercontent.com/midwan/amigapi/master
+UPDATE_BASE=https://raw.githubusercontent.com/midwan/amiberry/master
 UAE_BINARY=http://blitterstudio.com/files/uae4arm-rpi.zip
 
 is_pione() {
@@ -75,7 +75,7 @@ do_about() {
 This tool provides an easy way to automatically \
 configure a stock Minibian installation as an \
 Amiga emulation environment.
-After AmigaPi is installed, the system will be \
+After AmiBerry is installed, the system will be \
 configured to boot directly into UAE as fast as possible. \
 Additionally, a few tools (like a File Manager) \
 will also be installed.
@@ -84,7 +84,7 @@ You can always re-run this tool to perform any of the \
 available functions.
 
 Created by Dimitris Panokostas.
-Visit http://blitterstudio.com/amigapi/ for the latest in this project.
+Visit http://blitterstudio.com/amiberry/ for the latest in this project.
   " 20 70 1
 }
 
@@ -780,7 +780,7 @@ do_ssh() {
 do_update() {
   apt-get -y update && apt-get -y dist-upgrade &&
   do_selfupdate &&
-  sh ./amigapi
+  sh ./amiberry
 }
 
 do_sysupdate() {
@@ -850,7 +850,7 @@ EOF
     fi
   elif [ "$SELFUPDATE" -eq 2 ]
   then
-    whiptail --msgbox "No update information is available for '$SELF'.\nPlease check the Project home page at https://github.com/midwan/amigapi" 20 60 2
+    whiptail --msgbox "No update information is available for '$SELF'.\nPlease check the Project home page at https://github.com/midwan/amiberry" 20 60 2
   fi
 fi
 }
@@ -952,10 +952,10 @@ nonint() {
 }
 
 do_installation_menu() {
-  FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (AmigaPi)" --menu "Installation Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
+  FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (AmiBerry)" --menu "Installation Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
 	"A1 Expand Filesystem" "Ensures that all of the SD card storage is available" \
-	"A2 Quick Install AmigaPi" "Installs and configures system to auto-boot in UAE" \
-	"A3 Advanced Install AmigaPi" "Asks for confirmation for each step" \
+	"A2 Quick Install AmiBerry" "Installs and configures system to auto-boot in UAE" \
+	"A3 Advanced Install AmiBerry" "Asks for confirmation for each step" \
 	3>&1 1>&2 2>&3)
   RET=$?
   if [ $RET -eq 1 ]; then
@@ -963,8 +963,8 @@ do_installation_menu() {
 	elif [ $RET -eq 0 ]; then
 	case "$FUN" in
 	  A1\ *) do_expand_rootfs ;;
-	  A2\ *) do_amigapi_setup ;;
-	  A3\ *) do_advanced_amigapi_setup ;;
+	  A2\ *) do_amiberry_setup ;;
+	  A3\ *) do_advanced_amiberry_setup ;;
 	  *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
 	esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
   fi
@@ -992,10 +992,10 @@ do_internationalisation_menu() {
 }
 		
 do_upgrade_menu() {
-  FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (AmigaPi)" --menu "Upgrade Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
-	"A1 Upgrade All" "Upgrade the system and AmigaPi" \
+  FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (AmiBerry)" --menu "Upgrade Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
+	"A1 Upgrade All" "Upgrade the system and AmiBerry" \
 	"A2 Upgrade System only" "Upgrade the system only" \
-	"A3 Upgrade AmigaPi only" "Upgrade this tool only" \
+	"A3 Upgrade AmiBerry only" "Upgrade this tool only" \
 	"A4 Upgrade UAE4Arm only" "Upgrade or re-install UAE4Arm" \
 	"A5 Upgrade RPi firmware" "Run rpi-update to get the latest firmware" \
 	3>&1 1>&2 2>&3)
@@ -1015,7 +1015,7 @@ do_upgrade_menu() {
 }
 
 do_upgradeuae_menu() {
-  FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (AmigaPi)" --menu "Upgrade UAE4Arm Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
+  FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (AmiBerry)" --menu "Upgrade UAE4Arm Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
 	"A1 Get latest binary" "Download latest pre-compiled binary" \
 	"A2 Compile from source" "Download and compile latest version from sources" \
 	3>&1 1>&2 2>&3)
@@ -1024,10 +1024,10 @@ do_upgradeuae_menu() {
 	return 0
 	elif [ $RET -eq 0 ]; then
 	case "$FUN" in
-	  A1\ *) do_amigapi_downloaduae && do_amigapi_extractuae && whiptail --msgbox "The latest binary was downloaded and extracted in your system!" 20 60 1 ;;
+	  A1\ *) do_amiberry_downloaduae && do_amiberry_extractuae && whiptail --msgbox "The latest binary was downloaded and extracted in your system!" 20 60 1 ;;
 	  A2\ *) whiptail --yesno "Warning: This operation will take several minutes to complete and the stability of the version cannot be guaranteed. Are you sure you want to continue?" 20 60 2
 			if [ $? -eq 0 ]; then
-			  do_amigapi_compileuae
+			  do_amiberry_compileuae
 			fi
 			;;
 	  *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
@@ -1036,7 +1036,7 @@ do_upgradeuae_menu() {
 }
 
 do_configure_menu() {
-  FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (AmigaPi)" --menu "Configure System" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
+  FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (AmiBerry)" --menu "Configure System" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
 	"A1 WiFi" "Enable WiFi, asking for your SSID and Password" \
 	"A2 Internationalisation" "Set up language and regional settings to match your location" \
 	"A3 Hostname" "Set the visible name for this Pi on a network" \
@@ -1057,7 +1057,7 @@ do_configure_menu() {
 	  A4\ *) do_ssh ;;
 	  A5\ *) do_audio ;;
 	  A6\ *) do_video_menu ;;
-	  A7\ *) do_amigapi_uaeservice ;;
+	  A7\ *) do_amiberry_uaeservice ;;
 	  A0\ *) do_overclock ;;
 	  *) whiptail --msgbox "Programmer error: unrecognized option" 20 60 1 ;;
 	esac || whiptail --msgbox "There was an error running option $FUN" 20 60 1
@@ -1065,7 +1065,7 @@ do_configure_menu() {
 }
 				
 do_video_menu() {
-  FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (AmigaPi)" --menu "Video Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
+  FUN=$(whiptail --title "Raspberry Pi Software Configuration Tool (AmiBerry)" --menu "Video Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Back --ok-button Select \
 	"A1 Overscan" "You may need to configure overscan if black bars are present on display" \
 	"A2 HDMI Safe mode" "Enables maximum HDMI compatibility" \
 	"A3 HDMI Mode" "Set the HDMI output format" \
@@ -1092,7 +1092,7 @@ do_rpi_update() {
 }
 
 # Download and compile the latest sources of uae4arm-rpi
-do_amigapi_compileuae() {
+do_amiberry_compileuae() {
   cd ~
   if [ -f "./uae4arm-rpi" ]; then
 	whiptail --yesno "The directory 'uae4arm-rpi' already exists in your home folder! Should I delete it?" 20 60 1
@@ -1118,7 +1118,7 @@ do_amigapi_compileuae() {
 }
 
 # Change options in /boot/config.txt file
-do_amigapi_boot_config() {
+do_amiberry_boot_config() {
 	set_config_var gpu_mem_256 128 $CONFIG
 	set_config_var gpu_mem_512 256 $CONFIG
 	set_config_var gpu_mem_1024 512 $CONFIG
@@ -1127,14 +1127,14 @@ do_amigapi_boot_config() {
 }
 
 # Tweak boot options in /boot/cmdline.txt, hide boot messages except critical errors
-do_amigapi_cmdline() {
+do_amiberry_cmdline() {
 	cat <<EOF > $CMDLINE
 dwc_otg.lpm_enable=0 console=ttyAMA0,115200 kgdboc=ttyAMA0,115200 console=tty3 root=/dev/mmcblk0p2 rootfstype=ext4 elevator=deadline fsck.repair=yes rootwait logo.nologo loglevel=3
 EOF
 }
 
 # Install extra packages (uae dependencies and some useful tools)
-do_amigapi_install_packages() {
+do_amiberry_install_packages() {
     apt-get -y update && apt-get -y install apt-utils apt-file \
       usbutils mc alsa-base alsa-oss joystick \
       libsdl-image1.2 libsdl-ttf2.0-0 libsdl-gfx1.2-5 \
@@ -1144,12 +1144,12 @@ do_amigapi_install_packages() {
 }
 
 # Optimize networking.service startup
-do_amigapi_optimize_network() {
+do_amiberry_optimize_network() {
 	sed -i -e 's/auto/allow-hotplug/g' /etc/network/interfaces
 }
 
 # Set boot method to Console
-do_amigapi_consoleboot() {
+do_amiberry_consoleboot() {
 if [ $SYSTEMD -eq 1 ]; then
 	systemctl set-default multi-user.target
 	ln -fs /lib/systemd/system/getty@.service /etc/systemd/system/getty.target.wants/getty@tty1.service
@@ -1164,74 +1164,74 @@ fi
 }
 
 # Make mcedit the default editor
-do_amigapi_default_editor() {
+do_amiberry_default_editor() {
   update-alternatives --remove-all editor
   update-alternatives --install \
     /usr/bin/editor editor /usr/bin/mcedit 10
 }
 
-# Advanced install AmigaPi (ask for confirmation)
-do_advanced_amigapi_setup() {
+# Advanced install AmiBerry (ask for confirmation)
+do_advanced_amiberry_setup() {
   whiptail --yesno "Change /boot/config.txt with optimized values?\n\nThis will assign half of the system memory to the GPU, enable audio and set the boot delay to 0 seconds (default is 1)." 20 60 2
 	if [ $? -eq 0 ]; then # yes
-		do_amigapi_boot_config
+		do_amiberry_boot_config
 	fi
 	
 	whiptail --yesno "Change /boot/cmdline.txt to hide all boot messages?\n\nThis option will redirect all console output to tty3 and change the loglevel to 3." 20 60 2
 	if [ $? -eq 0 ]; then # yes
-		do_amigapi_cmdline
+		do_amiberry_cmdline
 	fi
 	
 	whiptail --yesno "Install additional packages?\n\nThis will install the uae4arm dependencies along with a few additional packages \
 to allow for USB device, NTFS support and the Midnight Commander file manager." 20 60 2
 	if [ $? -eq 0 ]; then # yes
-		do_amigapi_install_packages
+		do_amiberry_install_packages
 	fi
 	
 	whiptail --yesno "Optimize networking.service for faster startup?\n\nThis will change 'auto' to 'allow-hotplug' for all network interfaces \
 in /etc/network/interfaces." 20 60 2
 	if [ $? -eq 0 ]; then # yes
-		do_amigapi_optimize_network
+		do_amiberry_optimize_network
 	fi
 
 	whiptail --yesno "Change boot environment to Console?" 20 60 2
 	if [ $? -eq 0 ]; then # yes
-		do_amigapi_consoleboot
+		do_amiberry_consoleboot
 	fi
 	
 	whiptail --yesno "Disable debug messages on the Console?" 20 60 2
 	if [ $? -eq 0 ]; then # yes
-		do_amigapi_disabledebugconsole
+		do_amiberry_disabledebugconsole
 	fi
 	
 	whiptail --yesno "Change the default Editor to mcedit?" 20 60 2
 	if [ $? -eq 0 ]; then # yes
-		do_amigapi_default_editor
+		do_amiberry_default_editor
 	fi
 
 	whiptail --yesno "Download the latest uae4arm binary?" 20 60 2
 	if [ $? -eq 0 ]; then # yes
-		do_amigapi_downloaduae
+		do_amiberry_downloaduae
 	fi
 	
 	whiptail --yesno "Extract the downloaded uae4arm archive to /opt/uae4arm-rpi/ ?" 20 60 2
 	if [ $? -eq 0 ]; then # yes
-		do_amigapi_extractuae
+		do_amiberry_extractuae
 	fi
 	
 	whiptail --yesno "Create a service to run uae4arm on boot?" 20 60 2
 	if [ $? -eq 0 ]; then # yes
-		do_amigapi_createservice
+		do_amiberry_createservice
 	fi
 	
 	whiptail --yesno "Enable uae4arm.service now?" 20 60 2
 	if [ $? -eq 0 ]; then # yes
-		do_amigapi_enableservice
+		do_amiberry_enableservice
 	fi
 	
 	whiptail --yesno "Cleanup unneeded files?\n\nThis will delete the uae4arm archive and run apt-get clean && apt-get autoremove." 20 60 2
 	if [ $? -eq 0 ]; then # yes
-		do_amigapi_cleanup
+		do_amiberry_cleanup
 	fi
 }
 
@@ -1240,17 +1240,17 @@ is_service_enabled() {
   return $?
 }
 
-do_amigapi_uaeservice() {
+do_amiberry_uaeservice() {
   if [ -f /etc/systemd/system/uae4arm.service ]; then
     if is_service_enabled; then
 	  whiptail --yesno "The UAE4Arm service is currently enabled. Would you like to Disable it?" 20 60 1
 	  if [ $? -eq 0 ]; then #yes
-	    do_amigapi_disableservice
+	    do_amiberry_disableservice
 	  fi
 	else
 	  whiptail --yesno "The UAE4Arm service is currently disabled. Would you like to Enable it?" 20 60 1
 	  if [ $? -eq 0 ]; then #yes
-	    do_amigapi_enableservice
+	    do_amiberry_enableservice
 	  fi
 	fi
   else
@@ -1259,7 +1259,7 @@ do_amigapi_uaeservice() {
 }
 
 # Create service for uae4arm
-do_amigapi_createservice() {
+do_amiberry_createservice() {
   UAE_FILENAME=""
   
   if is_pione ; then
@@ -1307,50 +1307,50 @@ EOF
 }
 
 # Disable debug messages on first console
-do_amigapi_disabledebugconsole() {
+do_amiberry_disabledebugconsole() {
   sed -e 's#^exit 0#/bin/dmesg -n 1\n\nexit 0#g' \
     -i /etc/rc.local
 }
 
-do_amigapi_enableservice() {
+do_amiberry_enableservice() {
   systemctl enable uae4arm.service
   ASK_TO_REBOOT=1
 }
 
-do_amigapi_disableservice() {
+do_amiberry_disableservice() {
   systemctl disable uae4arm.service
   ASK_TO_REBOOT=1
 }
 
-do_amigapi_downloaduae() {
+do_amiberry_downloaduae() {
   wget -q "$UAE_BINARY" -O ~/uae4arm-rpi.zip
 }
 
-do_amigapi_extractuae() {
+do_amiberry_extractuae() {
   unzip uae4arm-rpi.zip -d /opt/
   chmod -R a+rwx /opt/uae4arm-rpi
 }
 
-do_amigapi_cleanup() {
+do_amiberry_cleanup() {
   rm uae4arm-rpi.zip
   apt-get clean
   apt-get -y autoremove
 }
 
-# Quick install AmigaPi (defaults)
-do_amigapi_setup() {
-  do_amigapi_boot_config
-  do_amigapi_cmdline
-  do_amigapi_install_packages
-  do_amigapi_optimize_network
-  do_amigapi_consoleboot
-  do_amigapi_disabledebugconsole
-  do_amigapi_default_editor
-  do_amigapi_downloaduae
-  do_amigapi_extractuae
-  do_amigapi_createservice
-  do_amigapi_enableservice
-  do_amigapi_cleanup
+# Quick install AmiBerry (defaults)
+do_amiberry_setup() {
+  do_amiberry_boot_config
+  do_amiberry_cmdline
+  do_amiberry_install_packages
+  do_amiberry_optimize_network
+  do_amiberry_consoleboot
+  do_amiberry_disabledebugconsole
+  do_amiberry_default_editor
+  do_amiberry_downloaduae
+  do_amiberry_extractuae
+  do_amiberry_createservice
+  do_amiberry_enableservice
+  do_amiberry_cleanup
 
   whiptail --msgbox "\
 Done!
@@ -1376,7 +1376,7 @@ do_open_uae() {
 	cd /opt/uae4arm-rpi/
 	./uae4arm-rpi2 -f conf/autostart.uae
   else
-	whiptail --msgbox "Could not find the emulator in /opt/uae4arm-rpi/ \nPlease install AmigaPi first!" 20 60 1
+	whiptail --msgbox "Could not find the emulator in /opt/uae4arm-rpi/ \nPlease install AmiBerry first!" 20 60 1
   fi
 }
 
@@ -1416,10 +1416,10 @@ do
     do_apply_os_config
     exit $?
     ;;
-  --install-amigapi)
+  --install-amiberry)
     INTERACTIVE=False
 	get_init_sys
-	do_amigapi_setup
+	do_amiberry_setup
 	exit 0
 	;;
   nonint)
@@ -1433,7 +1433,7 @@ do
 done
 
 if [ $(id -u) -ne 0 ]; then
-  printf "Script must be run as root. Try 'sudo sh ./amigapi'\n"
+  printf "Script must be run as root. Try 'sudo sh ./amiberry'\n"
   exit 1
 fi
 
@@ -1447,14 +1447,14 @@ fi
 
 if [ "$INTERACTIVE" = True ]; then
   if ! mountpoint -q /boot; then
-	whiptail --msgbox "The boot partition is not mounted - cannot configure. Note that amigapi is intended for use on Minibian only and cannot be guaranteed to work on other operating systems." 20 60 1
+	whiptail --msgbox "The boot partition is not mounted - cannot configure. Note that amiberry is intended for use on Minibian only and cannot be guaranteed to work on other operating systems." 20 60 1
 	exit 1
   fi
   [ -e $CONFIG ] || touch $CONFIG
   get_init_sys
   calc_wt_size
   while true; do
-	FUN=$(whiptail --title "AmigaPi Software Configuration Tool" --menu "Setup Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Finish --ok-button Select \
+	FUN=$(whiptail --title "AmiBerry Software Configuration Tool" --menu "Setup Options" $WT_HEIGHT $WT_WIDTH $WT_MENU_HEIGHT --cancel-button Finish --ok-button Select \
 	  "1 Installation" "Installation options" \
 	  "2 Upgrade" "Upgrade options" \
 	  "3 Configuration" "Configure various system options" \
@@ -1462,7 +1462,7 @@ if [ "$INTERACTIVE" = True ]; then
 	  "5 File Manager" "Open Midnight Commander to manage your files" \
 	  "8 Reboot" "Reboot the system" \
 	  "9 Shutdown" "Shutdown the system" \
-	  "0 About AmigaPi" "Information about this configuration tool" \
+	  "0 About AmiBerry" "Information about this configuration tool" \
 	  3>&1 1>&2 2>&3)
 	RET=$?
 	if [ $RET -eq 1 ]; then
