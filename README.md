@@ -1,5 +1,7 @@
-# AmiBerry
+# AmiBerry v1
 A script to configure a stock [Minibian](https://minibianpi.wordpress.com/) system as a dedicated Amiga emulation machine.
+
+Note: This version is now deprecated, since v2 is out. The new version was built from the ground up to be better, so I'd recommend you use that instead. Get it from [the official page](http://blitterstudio.com/amiberry)
 
 Requirements
 ------------
